@@ -6,8 +6,11 @@ import PostCard from './components/PostCard';
 import Sidebar from './components/Sidebar';
 import Admin from './pages/Admin';
 import CreatePost from './pages/CreatePost';
+import UpdatePost from './pages/UpdatePost';
 import Profile from './pages/Profile';
 import Communities from './pages/Communities';
+import Login from './pages/Login';
+import Register from './pages/Register';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -34,6 +37,7 @@ function AppHome() {
       setPosts([
         {
           id: 1,
+          _id: 1,
           subreddit: 'teknoloji',
           author: 'techguru',
           title: 'Yeni AI modeli GPT-5 duyuruldu! İşte detaylar',
@@ -42,9 +46,11 @@ function AppHome() {
           comments: 324,
           timeAgo: '3 saat önce',
           image: null,
+          userId: null,
         },
         {
           id: 2,
+          _id: 2,
           subreddit: 'programlama',
           author: 'coderlife',
           title: 'React 19 çıktı! Yeni özellikler ve değişiklikler',
@@ -158,9 +164,13 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<AppHome />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
       <Route path="/admin" element={<Admin />} />
       <Route path="/add" element={<CreatePost />} />
       <Route path="/create-post" element={<CreatePost />} />
+      <Route path="/edit-post/:id" element={<UpdatePost />} />
+      <Route path="/update-post/:id" element={<UpdatePost />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/communities" element={<Communities />} />
     </Routes>

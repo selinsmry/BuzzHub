@@ -21,13 +21,56 @@ mongoose
     const communityCount = await Community.countDocuments();
     const userCount = await User.countDocuments();
 
-    if (postCount === 0) {
+    if (userCount === 0) {
+      const initialUsers = [
+        { username: 'techguru', email: 'tech@example.com', password: 'pass123', role: 'user' },
+        { username: 'admin', email: 'admin@example.com', password: 'admin123', role: 'admin' },
+        { username: 'coderlife', email: 'coder@example.com', password: 'coder123', role: 'user' },
+      ];
+      const createdUsers = await User.insertMany(initialUsers);
+      console.log("✓ Başlangıç kullanıcı verileri eklendi");
+
+      // Kullanıcılar eklendikten sonra postları ekle
+      if (postCount === 0) {
+        const techguruUser = createdUsers.find(u => u.username === 'techguru');
+        const coderlifeUser = createdUsers.find(u => u.username === 'coderlife');
+
+        const initialPosts = [
+          {
+            title: 'Yeni AI modeli GPT-5 duyuruldu! İşte detaylar',
+            content: 'OpenAI bugün yapay zeka dünyasında devrim yaratacak yeni modelini tanıttı.',
+            subreddit: 'teknoloji',
+            author: 'techguru',
+            userId: techguruUser?._id || null,
+            votes: 2847,
+            comments: 324,
+          },
+          {
+            title: 'React 19 çıktı! Yeni özellikler ve değişiklikler',
+            content: 'React ekibi uzun süredir beklenen 19. versiyonu sonunda yayınladı.',
+            subreddit: 'programlama',
+            author: 'coderlife',
+            userId: coderlifeUser?._id || null,
+            votes: 1523,
+            comments: 187,
+          },
+        ];
+        await Post.insertMany(initialPosts);
+        console.log("✓ Başlangıç post verileri eklendi");
+      }
+    } else if (postCount === 0) {
+      // Kullanıcılar zaten varsa postları ekle
+      const users = await User.find({ username: { $in: ['techguru', 'coderlife'] } });
+      const techguruUser = users.find(u => u.username === 'techguru');
+      const coderlifeUser = users.find(u => u.username === 'coderlife');
+
       const initialPosts = [
         {
           title: 'Yeni AI modeli GPT-5 duyuruldu! İşte detaylar',
           content: 'OpenAI bugün yapay zeka dünyasında devrim yaratacak yeni modelini tanıttı.',
           subreddit: 'teknoloji',
           author: 'techguru',
+          userId: techguruUser?._id || null,
           votes: 2847,
           comments: 324,
         },
@@ -36,6 +79,7 @@ mongoose
           content: 'React ekibi uzun süredir beklenen 19. versiyonu sonunda yayınladı.',
           subreddit: 'programlama',
           author: 'coderlife',
+          userId: coderlifeUser?._id || null,
           votes: 1523,
           comments: 187,
         },
@@ -55,16 +99,6 @@ mongoose
       await Community.insertMany(initialCommunities);
       console.log("✓ Başlangıç topluluk verileri eklendi");
     }
-
-    if (userCount === 0) {
-      const initialUsers = [
-        { username: 'techguru', email: 'tech@example.com', role: 'user' },
-        { username: 'admin', email: 'admin@example.com', role: 'admin' },
-        { username: 'coderlife', email: 'coder@example.com', role: 'user' },
-      ];
-      await User.insertMany(initialUsers);
-      console.log("✓ Başlangıç kullanıcı verileri eklendi");
-    }
   })
   .catch((err) => console.error("✗ MongoDB bağlantı hatası:", err));
 
@@ -72,6 +106,61 @@ mongoose
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../frontend/dist")));
+
+// ===== DEBUG API =====
+// Tüm postları listele (debug için)
+app.get("/api/debug/posts", async (req, res) => {
+  try {
+    const posts = await Post.find().select("_id title author userId createdAt");
+    res.json(posts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Database'i sıfırla (TESTİNG İÇİN)
+app.post("/api/debug/reset", async (req, res) => {
+  try {
+    await Post.deleteMany({});
+    await User.deleteMany({});
+    await Community.deleteMany({});
+    res.json({ message: "Database temizlendi" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ===== VOTES API =====
+// GET all posts with votes
+app.get("/api/votes", async (req, res) => {
+  try {
+    const posts = await Post.find().select("title votes");
+    res.json(posts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// UPDATE post vote
+app.put("/api/votes/:id", async (req, res) => {
+  try {
+    const { votes } = req.body;
+    const post = await Post.findByIdAndUpdate(
+      req.params.id,
+      { votes },
+      { new: true }
+    );
+    if (!post) {
+      return res.status(404).json({ message: "Post bulunamadı" });
+    }
+    res.json(post);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // ===== POSTS API =====
 // GET all posts
@@ -100,7 +189,9 @@ app.get("/api/posts/:id", async (req, res) => {
 // CREATE new post
 app.post("/api/posts", async (req, res) => {
   try {
-    const { title, content, subreddit, author, image } = req.body;
+    const { title, content, subreddit, author, image, userId } = req.body;
+    
+    console.log('DEBUG POST /api/posts - Received:', { title, content, subreddit, author, image, userId });
 
     // Validation
     if (!title || !subreddit) {
@@ -112,44 +203,72 @@ app.post("/api/posts", async (req, res) => {
       content: content || null,
       subreddit,
       author: author || "anonymous",
+      userId: userId || null,
       image: image || null,
       votes: 0,
       comments: 0,
     });
 
+    console.log('DEBUG POST /api/posts - newPost before save:', newPost);
     const savedPost = await newPost.save();
+    console.log('DEBUG POST /api/posts - savedPost after save:', savedPost);
     res.status(201).json(savedPost);
   } catch (err) {
+    console.error('DEBUG POST /api/posts - Error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// UPDATE post
+// UPDATE post (only post owner can update)
 app.put("/api/posts/:id", async (req, res) => {
   try {
-    const { title, content, subreddit } = req.body;
-    const post = await Post.findByIdAndUpdate(
+    const { title, content, subreddit, userId } = req.body;
+    
+    // Gönderiyi bul
+    const post = await Post.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ message: "Post bulunamadı" });
+    }
+
+    // Sadece postu yazan kullanıcı güncelleyebilir
+    if (post.userId && userId && post.userId.toString() !== userId) {
+      return res.status(403).json({ 
+        message: "Sadece postu yazan kullanıcı bunu güncelleyebilir" 
+      });
+    }
+
+    const updatedPost = await Post.findByIdAndUpdate(
       req.params.id,
       { title, content, subreddit },
       { new: true }
     );
-    if (!post) {
-      return res.status(404).json({ message: "Post bulunamadı" });
-    }
-    res.json(post);
+    
+    res.json(updatedPost);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// DELETE post
+// DELETE post (only post owner can delete)
 app.delete("/api/posts/:id", async (req, res) => {
   try {
-    const post = await Post.findByIdAndDelete(req.params.id);
+    const { userId } = req.body;
+    
+    // Gönderiyi bul
+    const post = await Post.findById(req.params.id);
     if (!post) {
       return res.status(404).json({ message: "Post bulunamadı" });
     }
-    res.json(post);
+
+    // Sadece postu yazan kullanıcı silebilir
+    if (post.userId && userId && post.userId.toString() !== userId) {
+      return res.status(403).json({ 
+        message: "Sadece postu yazan kullanıcı bunu silebilir" 
+      });
+    }
+
+    await Post.findByIdAndDelete(req.params.id);
+    res.json({ message: "Post başarıyla silindi" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -236,7 +355,7 @@ app.delete("/api/communities/:id", async (req, res) => {
 // GET all users
 app.get("/api/users", async (req, res) => {
   try {
-    const users = await User.find().select("-password");
+    const users = await User.find();
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: err.message });

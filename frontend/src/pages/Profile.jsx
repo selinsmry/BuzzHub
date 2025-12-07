@@ -19,14 +19,23 @@ function Profile() {
     try {
       setLoading(true);
       
-      // Kullanıcı bilgisi fetch et
-      const userResponse = await axios.get(`${API_URL}/users/1`);
+      // localStorage'dan giriş yapan kullanıcıyı al
+      const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+      
+      if (!currentUser || !currentUser._id) {
+        setError('Lütfen giriş yapınız');
+        setLoading(false);
+        return;
+      }
+      
+      // Kullanıcı bilgisi fetch et (gerçek kullanıcı ID'si ile)
+      const userResponse = await axios.get(`${API_URL}/users/${currentUser._id}`);
       const userData = userResponse.data;
 
       // Kullanıcının postlarını fetch et
       const postsResponse = await axios.get(`${API_URL}/posts`);
       const userPosts = postsResponse.data
-        .filter(post => post.author === userData.username)
+        .filter(post => post.userId === currentUser._id || post.author === userData.username)
         .map(post => ({
           id: post._id,
           subreddit: post.subreddit,
@@ -42,7 +51,7 @@ function Profile() {
         name: userData.username,
         username: userData.username,
         joinDate: new Date(userData.createdAt).toLocaleDateString('tr-TR'),
-        bio: '🚀 BuzzHub Kullanıcısı | Topluluk Üyesi',
+        bio: userData.bio || '👤 BuzzHub Kullanıcısı',
         location: '📍 Türkiye',
         website: '🌐 toplulukapp.com',
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userData.username}`,
@@ -58,23 +67,6 @@ function Profile() {
     } catch (err) {
       console.error('Kullanıcı verileri yüklenirken hata:', err);
       setError('Kullanıcı verileri yüklenemedi');
-      
-      // Fallback veri
-      setUser({
-        name: 'Ahmet Yılmaz',
-        username: 'ahmet_dev',
-        joinDate: '2 Ocak 2022',
-        bio: '🚀 BuzzHub Uzmanı | Teknoloji Meraklısı | Open Source Tutkunu | Coffee ☕',
-        location: '📍 İstanbul, Türkiye',
-        website: '🌐 ahmet.dev',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ahmet_dev',
-        stats: {
-          postCount: 234,
-          karma: 12500,
-          followers: 1250,
-        },
-        posts: [],
-      });
     } finally {
       setLoading(false);
     }

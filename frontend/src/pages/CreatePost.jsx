@@ -47,12 +47,20 @@ function CreatePost() {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       
+      // Mevcut kullanıcı bilgisini al
+      const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      console.log('DEBUG CreatePost - currentUser:', currentUser);
+      console.log('DEBUG CreatePost - currentUser._id:', currentUser._id);
+      
       const postData = {
         title,
         subreddit,
-        author: 'anonymous_user',
+        author: currentUser.username || 'anonymous_user',
+        userId: currentUser._id || null,
         timeAgo: 'az önce',
       };
+
+      console.log('DEBUG CreatePost - postData:', postData);
 
       if (postType === 'text') {
         postData.content = content;

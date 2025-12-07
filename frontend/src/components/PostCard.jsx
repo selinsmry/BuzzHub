@@ -1,8 +1,32 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 function PostCard({ post }) {
+  const navigate = useNavigate();
   const [votes, setVotes] = useState(post.votes);
   const [voteStatus, setVoteStatus] = useState(null); // 'up', 'down', or null
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isOwner, setIsOwner] = useState(false);
+
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    setCurrentUser(user);
+    // String olarak karşılaştır (MongoDB ObjectId vs localStorage string)
+    console.log('PostCard DEBUG:', {
+      user_id: user?._id,
+      post_userId: post.userId,
+      post_author: post.author,
+      post_title: post.title,
+      isMatch: user && user._id && post.userId && String(user._id) === String(post.userId)
+    });
+    if (user && user._id && post.userId && String(user._id) === String(post.userId)) {
+      setIsOwner(true);
+    } else {
+      setIsOwner(false);
+    }
+  }, [post]);
 
   const handleVote = (type) => {
     if (voteStatus === type) {
@@ -14,6 +38,30 @@ function PostCard({ post }) {
     } else {
       setVotes(type === 'up' ? votes + 2 : votes - 2);
       setVoteStatus(type);
+    }
+  };
+
+  const handleEdit = () => {
+    navigate(`/edit-post/${post._id || post.id}`);
+  };
+
+  const handleDelete = async () => {
+    if (window.confirm('Bu gönderiyi silmek istediğinizden emin misiniz?')) {
+      try {
+        setIsDeleting(true);
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        
+        await axios.delete(`${apiUrl}/posts/${post._id || post.id}`, {
+          data: { userId: currentUser._id }
+        });
+        window.location.reload();
+      } catch (err) {
+        console.error('Gönderi silinirken hata oluştu:', err);
+        alert(err.response?.data?.message || 'Gönderi silinirken hata oluştu');
+      } finally {
+        setIsDeleting(false);
+      }
     }
   };
 
@@ -45,16 +93,43 @@ function PostCard({ post }) {
 
         {/* Content section */}
         <div className="flex-1 p-4">
-          {/* Header */}
-          <div className="flex items-center text-xs text-gray-500 mb-2">
-            <span className="font-bold text-orange-400 hover:text-orange-300 hover:underline cursor-pointer transition">
-              r/{post.subreddit}
-            </span>
-            <span className="mx-1.5">•</span>
-            <span>Gönderen</span>
-            <span className="ml-1 hover:underline cursor-pointer text-gray-400 hover:text-gray-300 transition">u/{post.author}</span>
-            <span className="mx-1.5">•</span>
-            <span>{post.timeAgo}</span>
+          {/* Header with Edit/Delete buttons */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center text-xs text-gray-500">
+              <span className="font-bold text-orange-400 hover:text-orange-300 hover:underline cursor-pointer transition">
+                r/{post.subreddit}
+              </span>
+              <span className="mx-1.5">•</span>
+              <span>Gönderen</span>
+              <span className="ml-1 hover:underline cursor-pointer text-gray-400 hover:text-gray-300 transition">u/{post.author}</span>
+              <span className="mx-1.5">•</span>
+              <span>{post.timeAgo}</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              {isOwner && (
+                <>
+                  <button
+                    onClick={handleEdit}
+                    className="p-1.5 text-gray-400 hover:text-orange-400 hover:bg-gray-700/50 rounded-lg transition"
+                    title="Düzenle"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700/50 rounded-lg transition disabled:opacity-50"
+                    title="Sil"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Title */}

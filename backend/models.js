@@ -6,7 +6,7 @@ const postSchema = new mongoose.Schema(
     title: { type: String, required: true },
     content: String,
     subreddit: { type: String, required: true },
-    author: { type: String, default: 'anonymous' },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
     votes: { type: Number, default: 0 },
     comments: { type: Number, default: 0 },
     image: String,
@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema(
   {
     username: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
-    password: String,
+    password: { type: String, required: true },
     role: { type: String, enum: ['user', 'admin', 'moderator'], default: 'user' },
     createdAt: { type: Date, default: Date.now },
   },

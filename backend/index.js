@@ -4,12 +4,11 @@ const path = require("path");
 const mongoose = require("mongoose");
 require("dotenv").config();
 
-const { Post, Community, User } = require("./models");
+const { Post, Community, User, Comment } = require("./models");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/toplulukapp";
-
+const MONGODB_URI = process.env.MONGODB_URI
 // MongoDB bağlantısı
 mongoose
   .connect(MONGODB_URI)
@@ -20,85 +19,6 @@ mongoose
     const postCount = await Post.countDocuments();
     const communityCount = await Community.countDocuments();
     const userCount = await User.countDocuments();
-
-    if (userCount === 0) {
-      const initialUsers = [
-        { username: 'techguru', email: 'tech@example.com', password: 'pass123', role: 'user' },
-        { username: 'admin', email: 'admin@example.com', password: 'admin123', role: 'admin' },
-        { username: 'coderlife', email: 'coder@example.com', password: 'coder123', role: 'user' },
-      ];
-      const createdUsers = await User.insertMany(initialUsers);
-      console.log("✓ Başlangıç kullanıcı verileri eklendi");
-
-      // Kullanıcılar eklendikten sonra postları ekle
-      if (postCount === 0) {
-        const techguruUser = createdUsers.find(u => u.username === 'techguru');
-        const coderlifeUser = createdUsers.find(u => u.username === 'coderlife');
-
-        const initialPosts = [
-          {
-            title: 'Yeni AI modeli GPT-5 duyuruldu! İşte detaylar',
-            content: 'OpenAI bugün yapay zeka dünyasında devrim yaratacak yeni modelini tanıttı.',
-            subreddit: 'teknoloji',
-            author: 'techguru',
-            userId: techguruUser?._id || null,
-            votes: 2847,
-            comments: 324,
-          },
-          {
-            title: 'React 19 çıktı! Yeni özellikler ve değişiklikler',
-            content: 'React ekibi uzun süredir beklenen 19. versiyonu sonunda yayınladı.',
-            subreddit: 'programlama',
-            author: 'coderlife',
-            userId: coderlifeUser?._id || null,
-            votes: 1523,
-            comments: 187,
-          },
-        ];
-        await Post.insertMany(initialPosts);
-        console.log("✓ Başlangıç post verileri eklendi");
-      }
-    } else if (postCount === 0) {
-      // Kullanıcılar zaten varsa postları ekle
-      const users = await User.find({ username: { $in: ['techguru', 'coderlife'] } });
-      const techguruUser = users.find(u => u.username === 'techguru');
-      const coderlifeUser = users.find(u => u.username === 'coderlife');
-
-      const initialPosts = [
-        {
-          title: 'Yeni AI modeli GPT-5 duyuruldu! İşte detaylar',
-          content: 'OpenAI bugün yapay zeka dünyasında devrim yaratacak yeni modelini tanıttı.',
-          subreddit: 'teknoloji',
-          author: 'techguru',
-          userId: techguruUser?._id || null,
-          votes: 2847,
-          comments: 324,
-        },
-        {
-          title: 'React 19 çıktı! Yeni özellikler ve değişiklikler',
-          content: 'React ekibi uzun süredir beklenen 19. versiyonu sonunda yayınladı.',
-          subreddit: 'programlama',
-          author: 'coderlife',
-          userId: coderlifeUser?._id || null,
-          votes: 1523,
-          comments: 187,
-        },
-      ];
-      await Post.insertMany(initialPosts);
-      console.log("✓ Başlangıç post verileri eklendi");
-    }
-
-    if (communityCount === 0) {
-      const initialCommunities = [
-        { name: 'programlama', members: 15000, description: 'Programlama ve yazılım geliştirme topluluğu' },
-        { name: 'teknoloji', members: 20000, description: 'Teknoloji haberleri ve tartışmalar' },
-        { name: 'oyun', members: 18000, description: 'Oyun ve oyunculuk' },
-        { name: 'spor', members: 12000, description: 'Spor haberleri' },
-        { name: 'müzik', members: 8000, description: 'Müzik tartışmaları' },
-      ];
-      await Community.insertMany(initialCommunities);
-      console.log("✓ Başlangıç topluluk verileri eklendi");
-    }
   })
   .catch((err) => console.error("✗ MongoDB bağlantı hatası:", err));
 
@@ -222,7 +142,7 @@ app.post("/api/posts", async (req, res) => {
 // UPDATE post (only post owner can update)
 app.put("/api/posts/:id", async (req, res) => {
   try {
-    const { title, content, subreddit, userId } = req.body;
+    const { title, content, subreddit, userId,communityId } = req.body;
     
     // Gönderiyi bul
     const post = await Post.findById(req.params.id);
@@ -239,7 +159,7 @@ app.put("/api/posts/:id", async (req, res) => {
 
     const updatedPost = await Post.findByIdAndUpdate(
       req.params.id,
-      { title, content, subreddit },
+      { title, content, subreddit,communityId },
       { new: true }
     );
     
@@ -424,6 +344,139 @@ app.delete("/api/users/:id", async (req, res) => {
       return res.status(404).json({ message: "Kullanıcı bulunamadı" });
     }
     res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===== COMMENTS API =====
+// GET all comments for a post
+app.get("/api/posts/:postId/comments", async (req, res) => {
+  try {
+    const comments = await Comment.find({ postId: req.params.postId })
+      .populate('userId', 'username')
+      .sort({ createdAt: -1 });
+    res.json(comments);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET single comment
+app.get("/api/comments/:id", async (req, res) => {
+  try {
+    const comment = await Comment.findById(req.params.id)
+      .populate('userId', 'username')
+      .populate('postId', 'title');
+    if (!comment) {
+      return res.status(404).json({ message: "Yorum bulunamadı" });
+    }
+    res.json(comment);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// CREATE comment
+app.post("/api/comments", async (req, res) => {
+  try {
+    const { title, context, userId, postId } = req.body;
+
+    // Validation
+    if (!title || !context || !userId || !postId) {
+      return res.status(400).json({ message: "Tüm alanlar gereklidir: title, context, userId, postId" });
+    }
+
+    // Post'un var olduğunu kontrol et
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: "Post bulunamadı" });
+    }
+
+    // Yeni yorum oluştur
+    const newComment = new Comment({
+      title,
+      context,
+      userId,
+      postId,
+    });
+
+    const savedComment = await newComment.save();
+    
+    // Post'un yorum sayısını güncelle
+    post.comments += 1;
+    await post.save();
+
+    // Oluşturulan yorumu kullanıcı bilgisiyle birlikte geri döndür
+    const populatedComment = await Comment.findById(savedComment._id)
+      .populate('userId', 'username');
+    
+    res.status(201).json(populatedComment);
+  } catch (err) {
+    console.error('Yorum oluşturulurken hata:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// UPDATE comment (only comment owner can update)
+app.put("/api/comments/:id", async (req, res) => {
+  try {
+    const { title, context, userId } = req.body;
+    
+    // Yorumu bul
+    const comment = await Comment.findById(req.params.id);
+    if (!comment) {
+      return res.status(404).json({ message: "Yorum bulunamadı" });
+    }
+
+    // Sadece yorumu yazan kullanıcı güncelleyebilir
+    if (comment.userId.toString() !== userId) {
+      return res.status(403).json({ 
+        message: "Sadece yorumu yazan kullanıcı bunu güncelleyebilir" 
+      });
+    }
+
+    const updatedComment = await Comment.findByIdAndUpdate(
+      req.params.id,
+      { title, context },
+      { new: true }
+    ).populate('userId', 'username');
+    
+    res.json(updatedComment);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE comment (only comment owner can delete)
+app.delete("/api/comments/:id", async (req, res) => {
+  try {
+    const { userId } = req.body;
+    
+    // Yorumu bul
+    const comment = await Comment.findById(req.params.id);
+    if (!comment) {
+      return res.status(404).json({ message: "Yorum bulunamadı" });
+    }
+
+    // Sadece yorumu yazan kullanıcı silebilir
+    if (comment.userId.toString() !== userId) {
+      return res.status(403).json({ 
+        message: "Sadece yorumu yazan kullanıcı bunu silebilir" 
+      });
+    }
+
+    // Yorumu sil
+    await Comment.findByIdAndDelete(req.params.id);
+    
+    // Post'un yorum sayısını güncelle
+    const post = await Post.findById(comment.postId);
+    if (post && post.comments > 0) {
+      post.comments -= 1;
+      await post.save();
+    }
+
+    res.json({ message: "Yorum başarıyla silindi" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

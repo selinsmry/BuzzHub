@@ -9,7 +9,7 @@ function UpdatePost() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [link, setLink] = useState('');
-  const [subreddit, setSubreddit] = useState('programlama');
+  const [subreddit, setSubreddit] = useState('');
   const [votes, setVotes] = useState(0);
   const [comments, setComments] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -17,23 +17,44 @@ function UpdatePost() {
   const [error, setError] = useState('');
   const [post, setPost] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
-
-  const subreddits = [
-    'programlama',
-    'teknoloji',
-    'oyun',
-    'spor',
-    'müzik',
-    'kitap',
-    'film',
-    'seyahat',
-  ];
+  const [communities, setCommunities] = useState([]);
+  const [loadingCommunities, setLoadingCommunities] = useState(true);
 
   // Mevcut kullanıcıyı al
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
     setCurrentUser(user);
   }, []);
+
+  // Toplulukları backend'den çek
+  useEffect(() => {
+    fetchCommunities();
+  }, []);
+
+  const fetchCommunities = async () => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await axios.get(`${apiUrl}/communities`);
+      const communitiesList = response.data || [];
+      setCommunities(communitiesList);
+    } catch (err) {
+      console.error('Topluluklar yüklenirken hata:', err);
+      // Fallback olarak varsayılan toplulukları kullan
+      const defaultCommunities = [
+        { name: 'programlama' },
+        { name: 'teknoloji' },
+        { name: 'oyun' },
+        { name: 'spor' },
+        { name: 'müzik' },
+        { name: 'kitap' },
+        { name: 'film' },
+        { name: 'seyahat' },
+      ];
+      setCommunities(defaultCommunities);
+    } finally {
+      setLoadingCommunities(false);
+    }
+  };
 
   // Gönderiyi yükle
   useEffect(() => {
@@ -43,15 +64,6 @@ function UpdatePost() {
         const response = await axios.get(`${apiUrl}/posts/${id}`);
         const fetchedPost = response.data;
         setPost(fetchedPost);
-
-        // Sahip kontrolü yap
-        const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
-        if (!user || !user._id || (fetchedPost.userId && String(user._id) !== String(fetchedPost.userId))) {
-          setError('Bu gönderiyi düzenlemelsiniz izniniz yok. Sadece postu yazan kişi düzenleyebilir.');
-          setTimeout(() => navigate('/'), 2000);
-          setIsLoading(false);
-          return;
-        }
 
         setTitle(fetchedPost.title);
         setContent(fetchedPost.content || '');
@@ -191,9 +203,10 @@ function UpdatePost() {
               onChange={(e) => setSubreddit(e.target.value)}
               className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-gray-100 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
             >
-              {subreddits.map((sub) => (
-                <option key={sub} value={sub}>
-                  r/{sub}
+              <option value="">Bir topluluk seçin</option>
+              {communities.map((community) => (
+                <option key={community._id || community.name} value={community.name || community}>
+                  r/{community.name || community}
                 </option>
               ))}
             </select>

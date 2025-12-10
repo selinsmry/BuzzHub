@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 function CreatePost() {
   const navigate = useNavigate();
@@ -8,20 +10,45 @@ function CreatePost() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [link, setLink] = useState('');
-  const [subreddit, setSubreddit] = useState('programlama');
+  const [subreddit, setSubreddit] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [communities, setCommunities] = useState([]);
+  const [loadingCommunities, setLoadingCommunities] = useState(true);
 
-  const subreddits = [
-    'programlama',
-    'teknoloji',
-    'oyun',
-    'spor',
-    'müzik',
-    'kitap',
-    'film',
-    'seyahat',
-  ];
+  // Backend'den toplulukları çek
+  useEffect(() => {
+    fetchCommunities();
+  }, []);
+
+  const fetchCommunities = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/communities`);
+      const communitiesList = response.data || [];
+      setCommunities(communitiesList);
+      // İlk topluluğu default seç
+      if (communitiesList.length > 0) {
+        setSubreddit(communitiesList[0].name || communitiesList[0]);
+      }
+    } catch (err) {
+      console.error('Topluluklar yüklenirken hata:', err);
+      // Fallback olarak varsayılan toplulukları kullan
+      const defaultCommunities = [
+        { name: 'programlama' },
+        { name: 'teknoloji' },
+        { name: 'oyun' },
+        { name: 'spor' },
+        { name: 'müzik' },
+        { name: 'kitap' },
+        { name: 'film' },
+        { name: 'seyahat' },
+      ];
+      setCommunities(defaultCommunities);
+      setSubreddit('programlama');
+    } finally {
+      setLoadingCommunities(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -114,13 +141,21 @@ function CreatePost() {
             <select
               value={subreddit}
               onChange={(e) => setSubreddit(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-gray-100 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
+              disabled={loadingCommunities}
+              className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-gray-100 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all disabled:opacity-50"
             >
-              {subreddits.map((sub) => (
-                <option key={sub} value={sub}>
-                  r/{sub}
-                </option>
-              ))}
+              {loadingCommunities ? (
+                <option>Yükleniyor...</option>
+              ) : (
+                communities.map((community) => {
+                  const communityName = typeof community === 'string' ? community : community.name;
+                  return (
+                    <option key={communityName} value={communityName}>
+                      r/{communityName}
+                    </option>
+                  );
+                })
+              )}
             </select>
           </div>
 

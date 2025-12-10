@@ -11,6 +11,7 @@ const postSchema = new mongoose.Schema(
     comments: { type: Number, default: 0 },
     image: String,
     createdAt: { type: Date, default: Date.now },
+    communityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Community', required: false }
   },
   { timestamps: true }
 );
@@ -37,8 +38,22 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+
+const commentSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true },
+    context: { type: String, required: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    postId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post', required: true },
+    votes: { type: Number, default: 0 },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { timestamps: true }
+);
+
 module.exports = {
   Post: mongoose.model('Post', postSchema),
   Community: mongoose.model('Community', communitySchema),
   User: mongoose.model('User', userSchema),
+  Comment: mongoose.model('Comment', commentSchema)
 };

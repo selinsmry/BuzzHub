@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+﻿const mongoose = require('mongoose');
 
 // Post Schema
 const postSchema = new mongoose.Schema(
@@ -37,8 +37,34 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Vote Schema
+const voteSchema = new mongoose.Schema(
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    targetId: { type: mongoose.Schema.Types.ObjectId, required: true },
+    targetType: { type: String, enum: ['post', 'comment'], required: true },
+    value: { type: Number, enum: [1, -1], required: true },
+  },
+  { timestamps: true }
+);
+
+// Notification Schema
+const notificationSchema = new mongoose.Schema(
+  {
+    recipientId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
+    type: { type: String, required: true },
+    message: { type: String, required: true },
+    link: { type: String, required: false },
+    read: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
+
 module.exports = {
   Post: mongoose.model('Post', postSchema),
   Community: mongoose.model('Community', communitySchema),
   User: mongoose.model('User', userSchema),
+  Vote: mongoose.model('Vote', voteSchema),
+  Notification: mongoose.model('Notification', notificationSchema),
 };

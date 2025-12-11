@@ -16,11 +16,8 @@ function ProfileHeader({ user }) {
           <p className="text-sm text-gray-500 mt-1">Üye {user.joinDate}</p>
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons (follow feature removed) */}
         <div className="flex gap-3 mb-2">
-          <button className="px-6 py-2 bg-gradient-to-r from-orange-500 to-pink-600 text-white rounded-xl font-bold hover:from-orange-600 hover:to-pink-700 transition-all shadow-lg shadow-orange-500/20">
-            Takip Et
-          </button>
           <button className="px-4 py-2 bg-gray-700 text-gray-300 rounded-xl hover:bg-gray-600 transition">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

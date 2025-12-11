@@ -2,9 +2,11 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const mongoose = require("mongoose");
+const http = require("http");
+const socketIO = require("socket.io");
 require("dotenv").config();
 
-const { Post, Community, User } = require("./models");
+const { Post, Community, User, Notification } = require("./models");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -434,9 +436,226 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "Backend çalışıyor!" });
 });
 
-// Server'ı başlat
-app.listen(PORT, () => {
+// ===== NOTIFICATIONS API =====
+// GET recent notifications for user (last 50)
+app.get("/api/notifications/:userId", async (req, res) => {
+  try {
+    const notifications = await Notification.find({ recipientId: req.params.userId })
+      .populate('senderId', 'username')
+      .sort({ createdAt: -1 })
+      .limit(50);
+    res.json(notifications);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// CREATE notification (internal - called by socket events)
+const createNotification = async (recipientId, senderId, type, message, targetId = null, targetType = null) => {
+  try {
+    const notification = new Notification({
+      recipientId,
+      senderId,
+      type,
+      message,
+      targetId,
+      targetType,
+    });
+    const saved = await notification.save();
+    const populated = await saved.populate('senderId', 'username');
+    return populated;
+  } catch (err) {
+    console.error('Bildirim oluşturma hatası:', err);
+    return null;
+  }
+};
+
+// DELETE notification
+app.delete("/api/notifications/:id", async (req, res) => {
+  try {
+    const notification = await Notification.findByIdAndDelete(req.params.id);
+    if (!notification) {
+      return res.status(404).json({ message: "Bildirim bulunamadı" });
+    }
+    res.json({ message: "Bildirim silindi" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Server'ı HTTP sunucusu olarak başlat ve Socket.io'yu ekle
+const server = http.createServer(app);
+const io = socketIO(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    methods: ["GET", "POST"],
+  },
+});
+
+// Bağlı kullanıcıları takip et
+const connectedUsers = new Map();
+
+io.on("connection", (socket) => {
+  console.log("✓ Yeni socket bağlantısı:", socket.id);
+
+  // Kullanıcı join ettiğinde oda oluştur
+  socket.on("user-join", (userId) => {
+    socket.join(`user-${userId}`);
+    connectedUsers.set(userId, socket.id);
+    console.log(`✓ Kullanıcı ${userId} odaya katıldı`);
+    io.emit("user-status", { userId, status: "online" });
+  });
+
+  // Yorum yapıldığında bildirim gönder
+  socket.on("post-commented", async (data) => {
+    try {
+      const { postAuthorId, commentAuthorId, commentAuthorUsername, postTitle, postId } = data;
+      if (postAuthorId === commentAuthorId) return; // Kendi postuna yorum yapıyorsa bildirim yok
+      
+      const message = `${commentAuthorUsername} gönderinize yorum yaptı: "${postTitle}"`;
+      const notification = await createNotification(
+        postAuthorId,
+        commentAuthorId,
+        'comment',
+        message,
+        postId,
+        'Post'
+      );
+      if (notification) {
+        io.to(`user-${postAuthorId}`).emit('notification', notification);
+      }
+    } catch (err) {
+      console.error("Yorum bildirimi gönderme hatası:", err);
+    }
+  });
+
+  // Like yapıldığında bildirim gönder
+  socket.on("post-liked", async (data) => {
+    try {
+      const { postAuthorId, likerUserId, likerUsername, postTitle, postId } = data;
+      if (postAuthorId === likerUserId) return; // Kendi postuna like atıyorsa bildirim yok
+      
+      const message = `${likerUsername} gönderinizi beğendi: "${postTitle}"`;
+      const notification = await createNotification(
+        postAuthorId,
+        likerUserId,
+        'like',
+        message,
+        postId,
+        'Post'
+      );
+      if (notification) {
+        io.to(`user-${postAuthorId}`).emit('notification', notification);
+      }
+    } catch (err) {
+      console.error("Like bildirimi gönderme hatası:", err);
+    }
+  });
+
+  // Dislike yapıldığında bildirim gönder
+  socket.on("post-disliked", async (data) => {
+    try {
+      const { postAuthorId, dislikerUserId, dislikerUsername, postTitle, postId } = data;
+      if (postAuthorId === dislikerUserId) return;
+      
+      const message = `${dislikerUsername} gönderinizi beğenmedi: "${postTitle}"`;
+      const notification = await createNotification(
+        postAuthorId,
+        dislikerUserId,
+        'dislike',
+        message,
+        postId,
+        'Post'
+      );
+      if (notification) {
+        io.to(`user-${postAuthorId}`).emit('notification', notification);
+      }
+    } catch (err) {
+      console.error("Dislike bildirimi gönderme hatası:", err);
+    }
+  });
+
+  // (follow feature removed) previously handled 'user-followed' socket event
+
+  // Kullanıcı çıktığında
+  socket.on("disconnect", () => {
+    console.log("✗ Socket bağlantısı kesildi:", socket.id);
+    for (let [userId, socketId] of connectedUsers.entries()) {
+      if (socketId === socket.id) {
+        connectedUsers.delete(userId);
+        io.emit("user-status", { userId, status: "offline" });
+        break;
+      }
+    }
+  });
+});
+
+server.listen(PORT, () => {
   console.log(`✓ Server http://localhost:${PORT} adresinde çalışıyor`);
   console.log(`✓ API: http://localhost:${PORT}/api`);
+  console.log(`✓ WebSocket: ws://localhost:${PORT}`);
   console.log(`✓ MongoDB URI: ${MONGODB_URI}`);
 });
+
+// ===== VOTES API =====
+app.post("/api/votes", async (req, res) => {
+  try {
+    const { userId, targetId, targetType, value } = req.body;
+    // value: 1 = upvote, -1 = downvote
+
+    if (!userId || !targetId || !targetType) {
+      return res.status(400).json({ message: "Eksik veri" });
+    }
+
+    // Kullanıcı daha önce bu post/comment için oy vermiş mi?
+    let vote = await Vote.findOne({ userId, targetId, targetType });
+
+    if (!vote) {
+      // İlk defa oy veriyorsa → yeni kayıt oluştur
+      vote = await Vote.create({ userId, targetId, targetType, value });
+    } else {
+      // Aynı oyu tekrar veriyorsa → oyu kaldır (unvote)
+      if (vote.value === value) {
+        await Vote.deleteOne({ _id: vote._id });
+
+        // Yeni skoru hesapla
+        const aggregated = await Vote.aggregate([
+          { $match: { targetId, targetType } },
+          { $group: { _id: null, total: { $sum: "$value" } } }
+        ]);
+
+        const newScore = aggregated[0]?.total || 0;
+
+        // Post veya yorum oy sayısını güncelle
+        if (targetType === "post") {
+          await Post.findByIdAndUpdate(targetId, { votes: newScore });
+        }
+
+        return res.json({ newScore });
+      }
+
+      // Farklı oy vermişse → güncelle
+      vote.value = value;
+      await vote.save();
+    }
+
+    // Yeni skoru hesapla
+    const aggregated = await Vote.aggregate([
+      { $match: { targetId, targetType } },
+      { $group: { _id: null, total: { $sum: "$value" } } }
+    ]);
+
+    const newScore = aggregated[0]?.total || 0;
+
+    // Post veya yorum skorunu güncelle
+    if (targetType === "post") {
+      await Post.findByIdAndUpdate(targetId, { votes: newScore });
+    }
+
+    res.json({ newScore });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+

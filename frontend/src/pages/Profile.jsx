@@ -58,7 +58,6 @@ function Profile() {
         stats: {
           postCount: userPosts.length,
           karma: userPosts.reduce((sum, p) => sum + p.votes, 0),
-          followers: 0,
         },
         posts: userPosts,
       });

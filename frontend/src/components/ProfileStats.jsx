@@ -7,7 +7,7 @@ function ProfileStats({ user }) {
   return (
     <div>
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-4 text-center">
           <p className="text-3xl font-bold text-orange-400">{user.stats.postCount}</p>
           <p className="text-gray-400 text-sm mt-1">Gönderi</p>
@@ -15,10 +15,6 @@ function ProfileStats({ user }) {
         <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-4 text-center">
           <p className="text-3xl font-bold text-pink-400">{user.stats.karma}</p>
           <p className="text-gray-400 text-sm mt-1">Karma</p>
-        </div>
-        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-4 text-center">
-          <p className="text-3xl font-bold text-orange-400">{user.stats.followers}</p>
-          <p className="text-gray-400 text-sm mt-1">Takipçi</p>
         </div>
       </div>
 

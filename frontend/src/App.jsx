@@ -6,11 +6,13 @@ import PostCard from './components/PostCard';
 import Sidebar from './components/Sidebar';
 import Admin from './pages/Admin';
 import CreatePost from './pages/CreatePost';
+import CreateCommunity from './pages/CreateCommunity';
 import UpdatePost from './pages/UpdatePost';
 import Profile from './pages/Profile';
 import Communities from './pages/Communities';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import PostDetail from './pages/PostDetail';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -33,34 +35,7 @@ function AppHome() {
     } catch (err) {
       console.error('Posts yüklenirken hata:', err);
       setError('Gönderiler yüklenemedi. Backend sunucu çalışıyor mu kontrol edin.');
-      // Fallback data
-      setPosts([
-        {
-          id: 1,
-          _id: 1,
-          subreddit: 'teknoloji',
-          author: 'techguru',
-          title: 'Yeni AI modeli GPT-5 duyuruldu! İşte detaylar',
-          content: 'OpenAI bugün yapay zeka dünyasında devrim yaratacak yeni modelini tanıttı.',
-          votes: 2847,
-          comments: 324,
-          timeAgo: '3 saat önce',
-          image: null,
-          userId: null,
-        },
-        {
-          id: 2,
-          _id: 2,
-          subreddit: 'programlama',
-          author: 'coderlife',
-          title: 'React 19 çıktı! Yeni özellikler ve değişiklikler',
-          content: 'React ekibi uzun süredir beklenen 19. versiyonu sonunda yayınladı.',
-          votes: 1523,
-          comments: 187,
-          timeAgo: '5 saat önce',
-          image: null,
-        },
-      ]);
+      setPosts([]);
     } finally {
       setLoading(false);
     }
@@ -169,8 +144,10 @@ function App() {
       <Route path="/admin" element={<Admin />} />
       <Route path="/add" element={<CreatePost />} />
       <Route path="/create-post" element={<CreatePost />} />
+      <Route path="/create-community" element={<CreateCommunity />} />
       <Route path="/edit-post/:id" element={<UpdatePost />} />
       <Route path="/update-post/:id" element={<UpdatePost />} />
+      <Route path="/post/:id" element={<PostDetail />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/communities" element={<Communities />} />
     </Routes>

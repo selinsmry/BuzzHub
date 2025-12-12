@@ -23,7 +23,6 @@ function Navbar() {
 
   const handleSearch = (e) => {
     if (e.key === 'Enter' && searchQuery.trim()) {
-      // Arama fonksiyonu burada eklenebilir
       console.log('Arama:', searchQuery);
     }
   };
@@ -76,11 +75,17 @@ function Navbar() {
                   </svg>
                   <span>Topluluklar</span>
                 </Link>
-                <Link to="/add" className="hidden md:flex items-center space-x-2 px-5 py-2 bg-gradient-to-r from-orange-500 to-pink-600 text-white rounded-xl hover:from-orange-600 hover:to-pink-700 transition-all text-sm font-semibold shadow-lg shadow-orange-500/20">
+                <Link to="/create-post" className="hidden md:flex items-center space-x-2 px-5 py-2 hover:bg-gray-800 rounded-xl transition text-sm font-semibold text-gray-300">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  <span>Oluştur</span>
+                  <span>Gönderi</span>
+                </Link>
+                <Link to="/create-community" className="hidden md:flex items-center space-x-2 px-5 py-2 bg-gradient-to-r from-orange-500 to-pink-600 text-white rounded-xl hover:from-orange-600 hover:to-pink-700 transition-all text-sm font-semibold shadow-lg shadow-orange-500/20">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                  <span>Topluluk Oluştur</span>
                 </Link>
               </>
             )}

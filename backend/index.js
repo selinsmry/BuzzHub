@@ -86,8 +86,22 @@ app.put("/api/votes/:id", async (req, res) => {
 // GET all posts
 app.get("/api/posts", async (req, res) => {
   try {
-    const posts = await Post.find().sort({ createdAt: -1 });
-    res.json(posts);
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const posts = await Post.find().skip(skip).limit(limit).sort({createdAt: -1});
+
+    const total = await Post.countDocuments();
+    const totalPages = Math.ceil(total / limit);
+
+    res.json({posts,pagination:{
+      currentPage: page,
+      totalPages,
+      totalItems: total,
+      itemsPerPage: limit,
+    }});
+    
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

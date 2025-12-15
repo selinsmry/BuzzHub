@@ -4,6 +4,7 @@ import axios from 'axios';
 import Navbar from './components/Navbar';
 import PostCard from './components/PostCard';
 import Sidebar from './components/Sidebar';
+import ProtectedRoute from './components/ProtectedRoute';
 import Admin from './pages/Admin';
 import CreatePost from './pages/CreatePost';
 import CreateCommunity from './pages/CreateCommunity';
@@ -31,7 +32,7 @@ function AppHome() {
       setLoading(true);
       setError(null);
       const response = await axios.get(`${API_URL}/posts`);
-      setPosts(response.data || []);
+      setPosts(response.data.posts || response.data || []);
     } catch (err) {
       console.error('Posts yüklenirken hata:', err);
       setError('Gönderiler yüklenemedi. Backend sunucu çalışıyor mu kontrol edin.');
@@ -40,7 +41,6 @@ function AppHome() {
       setLoading(false);
     }
   };
-
   const getFilteredPosts = () => {
     if (selectedFilter === 'hot') {
       return [...posts].sort((a, b) => b.votes - a.votes);
@@ -136,20 +136,21 @@ function AppHome() {
 }
 
 function App() {
+  
   return (
     <Routes>
       <Route path="/" element={<AppHome />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      <Route path="/admin" element={<Admin />} />
-      <Route path="/add" element={<CreatePost />} />
-      <Route path="/create-post" element={<CreatePost />} />
-      <Route path="/create-community" element={<CreateCommunity />} />
-      <Route path="/edit-post/:id" element={<UpdatePost />} />
-      <Route path="/update-post/:id" element={<UpdatePost />} />
-      <Route path="/post/:id" element={<PostDetail />} />
-      <Route path="/profile" element={<Profile />} />
-      <Route path="/communities" element={<Communities />} />
+      <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+      <Route path="/add" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
+      <Route path="/create-post" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
+      <Route path="/create-community" element={<ProtectedRoute><CreateCommunity /></ProtectedRoute>} />
+      <Route path="/edit-post/:id" element={<ProtectedRoute><UpdatePost /></ProtectedRoute>} />
+      <Route path="/update-post/:id" element={<ProtectedRoute><UpdatePost /></ProtectedRoute>} />
+      <Route path="/post/:id" element={<ProtectedRoute><PostDetail /></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/communities" element={<ProtectedRoute><Communities /></ProtectedRoute>} />
     </Routes>
   );
 }

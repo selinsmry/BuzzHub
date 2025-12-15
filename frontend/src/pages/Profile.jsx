@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../api/axiosInstance';
 import Navbar from '../components/Navbar';
 import ProfileHeader from '../components/ProfileHeader';
 import ProfileStats from '../components/ProfileStats';
@@ -22,20 +22,21 @@ function Profile() {
       // localStorage'dan giriş yapan kullanıcıyı al
       const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
       
-      if (!currentUser || !currentUser._id) {
+      if (!currentUser || !currentUser.id) {
         setError('Lütfen giriş yapınız');
         setLoading(false);
         return;
       }
       
       // Kullanıcı bilgisi fetch et (gerçek kullanıcı ID'si ile)
-      const userResponse = await axios.get(`${API_URL}/users/${currentUser._id}`);
-      const userData = userResponse.data;
+      const userResponse = await axiosInstance.get(`/users/${currentUser.id}`);
+            const userData = userResponse.data;
 
       // Kullanıcının postlarını fetch et
-      const postsResponse = await axios.get(`${API_URL}/posts`);
-      const userPosts = postsResponse.data
-        .filter(post => post.userId === currentUser._id || post.author === userData.username)
+      const postsResponse = await axiosInstance.get(`/posts`);
+      const posts = postsResponse.data.posts || postsResponse.data;
+      const userPosts = posts
+        .filter(post => post.userId === currentUser.id || post.author === userData.username)
         .map(post => ({
           id: post._id,
           subreddit: post.subreddit,
@@ -47,6 +48,7 @@ function Profile() {
           timeAgo: new Date(post.createdAt).toLocaleDateString('tr-TR'),
         }));
 
+      // Kullanıcı bilgisini ve postları state'e kaydet
       setUser({
         name: userData.username,
         username: userData.username,

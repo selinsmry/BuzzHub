@@ -17,7 +17,7 @@ function AdminPosts() {
     try {
       setLoading(true);
       const response = await axios.get(`${API_URL}/posts`);
-      setPosts(response.data || []);
+      setPosts(response.data.posts || response.data || []);
     } catch (err) {
       console.error('Gönderiler yüklenirken hata:', err);
       setPosts([

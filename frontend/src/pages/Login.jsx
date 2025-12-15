@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstance from '../api/axiosInstance';
 
 function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -13,47 +13,33 @@ function Login() {
     e.preventDefault();
     setError('');
 
-    // Validation
-    if (!email.trim()) {
-      setError('Lütfen email adresinizi girin');
-      return;
-    }
-
-    if (!password.trim()) {
-      setError('Lütfen şifre girin');
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      
-      // Önce kullanıcıyı bul
-      const usersResponse = await axios.get(`${apiUrl}/users`);
-      const users = usersResponse.data;
-      
-      // Email ve password eşleşmesi kontrol et
-      const user = users.find(u => u.email === email && u.password === password);
-      
-      if (!user) {
-        setError('Email veya şifre hatalı');
-        setIsSubmitting(false);
-        return;
+      // Backend'deki JWT login endpoint'ine istek gönder
+      const response = await axiosInstance.post(`/auth/login`, {
+        username: username,
+        password: password
+      });
+
+      const { accessToken, refreshToken, user } = response.data;
+
+      // Tokens ve kullanıcı bilgilerini localStorage'e kaydet
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('currentUser', JSON.stringify(user));
+
+      // Admin ise /admin'e, normal user ise /'ye yönlendir
+      if (user.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/');
       }
-
-      // localStorage'e kullanıcı bilgilerini kaydet
-      localStorage.setItem('currentUser', JSON.stringify({
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-      }));
-
-      // Ana sayfaya yönlendir
-      navigate('/');
     } catch (err) {
-      setError('Giriş yapılırken hata oluştu. Lütfen daha sonra deneyiniz.');
+      setError(
+        err.response?.data?.error || 
+        'Giriş yapılırken hata oluştu. Lütfen daha sonra deneyiniz.'
+      );
       console.error('Login error:', err);
     } finally {
       setIsSubmitting(false);
@@ -89,16 +75,16 @@ function Login() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email */}
+            {/* Username */}
             <div>
               <label className="block text-sm font-semibold text-gray-200 mb-2">
-                Email
+                Kullanıcı Adı
               </label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="email@example.com"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Kullanıcı adınız..."
                 className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
               />
             </div>
@@ -156,8 +142,8 @@ function Login() {
         <div className="mt-8 bg-gray-800/30 backdrop-blur-sm border border-gray-700/30 rounded-xl p-4">
           <p className="text-gray-400 text-xs text-center mb-2">📝 Test Hesapları:</p>
           <div className="space-y-1 text-xs text-gray-500 text-center">
-            <p>Email: <span className="text-gray-300">admin@example.com</span> | Şifre: <span className="text-gray-300">admin123</span></p>
-            <p>Email: <span className="text-gray-300">tech@example.com</span> | Şifre: <span className="text-gray-300">pass123</span></p>
+            <p>Kullanıcı: <span className="text-gray-300">admin</span> | Şifre: <span className="text-gray-300">admin123</span></p>
+            <p>Kullanıcı: <span className="text-gray-300">techguru</span> | Şifre: <span className="text-gray-300">pass123</span></p>
           </div>
         </div>
       </div>

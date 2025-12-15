@@ -27,11 +27,12 @@ function AdminDashboard() {
         axios.get(`${API_URL}/posts`),
       ]);
 
+      const postsList = postsRes.data.posts || postsRes.data || [];
       setStats({
         totalUsers: (usersRes.data || []).length,
         activeUsers: Math.ceil((usersRes.data || []).length * 0.25),
         totalCommunities: (communitiesRes.data || []).length,
-        totalPosts: (postsRes.data || []).length,
+        totalPosts: postsList.length,
         totalReports: 42,
         systemHealth: 98.5,
       });

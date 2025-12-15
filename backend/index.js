@@ -1,10 +1,14 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
 require("dotenv").config();
 
 const { Post, Community, User, Comment } = require("./models");
+const authRoutes = require("./routes/authRoutes");
+const verifyToken = require("./middleware/verifyToken");
+const verifyAdmin = require("./middleware/verifyAdmin");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -26,6 +30,9 @@ mongoose
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../frontend/dist")));
+
+// Auth Routes
+app.use("/api/auth", authRoutes);
 
 // ===== DEBUG API =====
 // Tüm postları listele (debug için)

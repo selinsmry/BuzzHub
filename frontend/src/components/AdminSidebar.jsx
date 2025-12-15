@@ -1,12 +1,12 @@
-function AdminSidebar({ activeTab, setActiveTab, setSidebarOpen }) {
+function AdminSidebar({ activeTab, setActiveTab, setSidebarOpen, onLogout }) {
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'users', label: 'Users', icon: '👥' },
-    { id: 'communities', label: 'Communities', icon: '🏘️' },
-    { id: 'posts', label: 'Posts', icon: '📝' },
-    { id: 'moderation', label: 'Moderation', icon: '🛡️' },
-    { id: 'reports', label: 'Reports', icon: '🚨' },
-    { id: 'settings', label: 'Settings', icon: '⚙️' },
+    { id: 'dashboard', label: 'Dashboard'},
+    { id: 'users', label: 'Users' },
+    { id: 'communities', label: 'Communities' },
+    { id: 'posts', label: 'Posts' },
+    { id: 'moderation', label: 'Moderation' },
+    { id: 'reports', label: 'Reports' },
+    { id: 'settings', label: 'Settings' },
   ];
 
   const handleMenuClick = (tabId) => {
@@ -43,15 +43,17 @@ function AdminSidebar({ activeTab, setActiveTab, setSidebarOpen }) {
       {/* Additional Actions */}
       <div className="space-y-2">
         <button className="w-full flex items-center space-x-3 px-4 py-3 text-gray-300 hover:bg-gray-800/50 hover:text-white rounded-xl transition-all duration-200">
-          <span className="text-xl">📱</span>
+          <span className="text-xl"></span>
           <span className="font-medium">Mobile View</span>
         </button>
         <button className="w-full flex items-center space-x-3 px-4 py-3 text-gray-300 hover:bg-gray-800/50 hover:text-white rounded-xl transition-all duration-200">
-          <span className="text-xl">📊</span>
+          <span className="text-xl"></span>
           <span className="font-medium">Analytics</span>
         </button>
-        <button className="w-full flex items-center space-x-3 px-4 py-3 text-gray-300 hover:bg-red-500/10 hover:text-red-400 rounded-xl transition-all duration-200">
-          <span className="text-xl">🚪</span>
+        <button 
+          onClick={onLogout}
+          className="w-full flex items-center space-x-3 px-4 py-3 text-gray-300 hover:bg-red-500/10 hover:text-red-400 rounded-xl transition-all duration-200">
+          <span className="text-xl"></span>
           <span className="font-medium">Logout</span>
         </button>
       </div>

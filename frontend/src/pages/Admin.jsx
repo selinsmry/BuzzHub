@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axiosInstance from '../api/axiosInstance';
 import AdminHeader from '../components/AdminHeader';
 import AdminSidebar from '../components/AdminSidebar';
 import AdminDashboard from '../components/AdminDashboard';
@@ -10,8 +12,24 @@ import AdminReports from '../components/AdminReports';
 import AdminSettings from '../components/AdminSettings';
 
 function Admin() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const handleLogout = async () => {
+    try {
+      // Backend logout endpoint'ine istek gönder
+      await axiosInstance.post('/auth/logout');
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      // Sonra localStorage temizle
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('currentUser');
+      navigate('/login');
+    }
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -41,7 +59,7 @@ function Admin() {
       <div className="flex pt-20">
         {/* Sidebar */}
         <div className={`fixed left-0 top-20 h-[calc(100vh-80px)] bg-gray-900/95 backdrop-blur-sm border-r border-gray-700/50 overflow-y-auto transition-transform duration-300 ${sidebarOpen ? 'w-64' : 'w-0 -translate-x-full'}`}>
-          <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} />
+          <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} setSidebarOpen={setSidebarOpen} onLogout={handleLogout} />
         </div>
 
         {/* Main Content */}

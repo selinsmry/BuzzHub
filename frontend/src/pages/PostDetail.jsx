@@ -44,7 +44,7 @@ function PostDetail() {
       setCurrentUser(user);
 
       // Check if current user is the owner
-      if (user && user._id && post.userId && String(user._id) === String(post.userId)) {
+      if (user && user.id && post.userId && String(user._id) === String(post.userId)) {
         setIsOwner(true);
       }
 
@@ -255,6 +255,12 @@ function PostDetail() {
       console.error('Oy verilirken hata oluştu:', err);
       setVotes(votes);
       setVoteStatus(voteStatus);
+      
+      // 401 hatası ise (giriş yapılmamış) - axiosInstance redirect edecek
+      if (err.response?.status === 401) {
+        return;
+      }
+      
       alert('Oy verilirken hata oluştu');
     }
   };

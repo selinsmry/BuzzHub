@@ -17,15 +17,30 @@ function AdminPosts() {
     try {
       setLoading(true);
       const response = await axios.get(`${API_URL}/posts`);
-      setPosts(response.data.posts || response.data || []);
+      const postsData = (response.data.posts || response.data || []).map(post => ({
+        ...post,
+        status: post.status || 'published',
+      }));
+      setPosts(postsData);
     } catch (err) {
       console.error('Gönderiler yüklenirken hata:', err);
-      setPosts([
-        { id: 1, title: 'Yeni AI modeli GPT-5 duyuruldu!', author: 'techguru', subreddit: 'teknoloji', votes: 2847, comments: 324 },
-        { id: 2, title: 'React 19 çıktı!', author: 'coderlife', subreddit: 'programlama', votes: 1523, comments: 187 },
-      ]);
+      setPosts([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeletePost = async (postId) => {
+    if (!window.confirm('Bu gönderiyi silmek istediğinize emin misiniz?')) return;
+    try {
+      await axios.delete(`${API_URL}/posts/${postId}`, {
+        data: { userId: localStorage.getItem('currentUser') ? JSON.parse(localStorage.getItem('currentUser'))._id : null }
+      });
+      setPosts(posts.filter(p => p._id !== postId));
+      alert('Gönderi başarıyla silindi');
+    } catch (err) {
+      console.error('Silme hatası:', err);
+      alert('Gönderi silinirken hata oluştu');
     }
   };
 
@@ -76,16 +91,16 @@ function AdminPosts() {
 
       {/* Posts List */}
       <div className="space-y-4">
-        {filteredPosts.map((post) => (
-          <div key={post.id} className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 hover:border-orange-500/30 transition-all shadow-xl">
+        {filteredPosts.length > 0 ? filteredPosts.map((post) => (
+          <div key={post._id} className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 hover:border-orange-500/30 transition-all shadow-xl">
             {/* Header */}
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-white mb-2">{post.title}</h3>
                 <div className="flex items-center space-x-4 text-sm text-gray-400">
-                  <span>👤 {post.author}</span>
-                  <span>🏘️ c/{post.community}</span>
-                  <span>⏰ {post.created}</span>
+                  <span>👤 {post.author || 'Unknown'}</span>
+                  <span>🏘️ c/{post.subreddit || 'general'}</span>
+                  <span>⏰ {new Date(post.createdAt).toLocaleDateString('tr-TR')}</span>
                 </div>
               </div>
               <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
@@ -101,39 +116,42 @@ function AdminPosts() {
             <div className="grid grid-cols-3 gap-4 mb-4 p-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
               <div>
                 <p className="text-gray-400 text-xs mb-1">Votes</p>
-                <p className="text-lg font-bold text-orange-400">{post.votes.toLocaleString()}</p>
+                <p className="text-lg font-bold text-orange-400">{(post.votes || 0).toLocaleString()}</p>
               </div>
               <div>
                 <p className="text-gray-400 text-xs mb-1">Comments</p>
-                <p className="text-lg font-bold text-blue-400">{post.comments}</p>
+                <p className="text-lg font-bold text-blue-400">{post.comments || 0}</p>
               </div>
               <div>
                 <p className="text-gray-400 text-xs mb-1">Engagement</p>
-                <p className="text-lg font-bold text-purple-400">{((post.votes + post.comments) / post.votes * 100).toFixed(0)}%</p>
+                <p className="text-lg font-bold text-purple-400">{((post.votes + post.comments) / (post.votes || 1) * 100).toFixed(0)}%</p>
               </div>
             </div>
+
+            {/* Content preview */}
+            {post.content && (
+              <div className="mb-4 p-3 bg-gray-900/30 rounded-lg border border-gray-700/20">
+                <p className="text-gray-300 text-sm line-clamp-2">{post.content}</p>
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex gap-2">
               <button className="px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-colors text-sm font-medium">
                 View Details
               </button>
-              {post.status === 'flagged' && (
-                <>
-                  <button className="px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-colors text-sm font-medium">
-                    Approve
-                  </button>
-                  <button className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors text-sm font-medium">
-                    Remove
-                  </button>
-                </>
-              )}
-              <button className="px-4 py-2 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors text-sm font-medium">
-                Edit
+              <button
+                onClick={() => handleDeletePost(post._id)}
+                className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors text-sm font-medium">
+                Delete
               </button>
             </div>
           </div>
-        ))}
+        )) : (
+          <div className="text-center py-12">
+            <p className="text-gray-400">No posts found</p>
+          </div>
+        )}
       </div>
 
       {/* Stats */}
@@ -152,7 +170,7 @@ function AdminPosts() {
         </div>
         <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-4 shadow-xl">
           <p className="text-gray-400 text-sm mb-1">Avg Engagement</p>
-          <p className="text-2xl font-bold text-purple-400">{(posts.reduce((sum, p) => sum + p.votes + p.comments, 0) / posts.length).toFixed(0)}</p>
+          <p className="text-2xl font-bold text-purple-400">{posts.length > 0 ? (posts.reduce((sum, p) => sum + p.votes + p.comments, 0) / posts.length).toFixed(0) : 0}</p>
         </div>
       </div>
     </div>

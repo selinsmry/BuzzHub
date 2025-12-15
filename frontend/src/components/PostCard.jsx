@@ -18,7 +18,7 @@ function PostCard({ post }) {
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
     setCurrentUser(user);
-    if (user && user._id && post.userId && String(user._id) === String(post.userId)) {
+    if (user && user.id && post.userId && String(user.id) === String(post.userId)) {
       setIsOwner(true);
     } else {
       setIsOwner(false);
@@ -32,14 +32,6 @@ function PostCard({ post }) {
   }, [post]);
 
   const handleVote = async (type) => {
-    // Giriş yapılmış mı kontrol et
-    const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
-    if (!user || !user._id) {
-      // Giriş yapılmamışsa login sayfasına yönlendir
-      navigate('/login');
-      return;
-    }
-
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       let newVotes = votes;
@@ -83,6 +75,12 @@ function PostCard({ post }) {
       // Hata durumunda önceki duruma dön
       setVotes(votes);
       setVoteStatus(voteStatus);
+      
+      // 401 hatası ise (giriş yapılmamış) - axiosInstance redirect edecek
+      if (err.response?.status === 401) {
+        return;
+      }
+      
       alert('Oy verilirken hata oluştu');
     }
   };
@@ -99,7 +97,7 @@ function PostCard({ post }) {
         const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
         
         await axios.delete(`${apiUrl}/posts/${post._id || post.id}`, {
-          data: { userId: currentUser._id }
+          data: { userId: currentUser.id }
         });
         window.location.reload();
       } catch (err) {

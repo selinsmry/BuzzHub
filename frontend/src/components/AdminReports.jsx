@@ -1,14 +1,7 @@
 import { useState } from 'react';
 
 function AdminReports() {
-  const [reports] = useState([
-    { id: 1, type: 'post', reporter: 'user123', reportedContent: 'Post #4521', reason: 'Hate speech', status: 'under_review', priority: 'high', date: '2 hours ago' },
-    { id: 2, type: 'user', reporter: 'user456', reportedContent: 'SpamBot123', reason: 'Spam', status: 'resolved', priority: 'medium', date: '4 hours ago' },
-    { id: 3, type: 'comment', reporter: 'user789', reportedContent: 'Comment #8932', reason: 'Misinformation', status: 'investigating', priority: 'medium', date: '6 hours ago' },
-    { id: 4, type: 'post', reporter: 'user101', reportedContent: 'Post #4398', reason: 'NSFW', status: 'under_review', priority: 'high', date: '1 day ago' },
-    { id: 5, type: 'user', reporter: 'user202', reportedContent: 'TrollAccount99', reason: 'Harassment', status: 'investigating', priority: 'high', date: '2 days ago' },
-  ]);
-
+  const [reports] = useState([]);
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('date');
 
@@ -78,7 +71,7 @@ function AdminReports() {
 
       {/* Reports List */}
       <div className="space-y-4">
-        {sortedReports.map((report) => (
+        {sortedReports.length > 0 ? sortedReports.map((report) => (
           <div key={report.id} className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 hover:border-orange-500/30 transition-all shadow-xl">
             {/* Header */}
             <div className="flex items-start justify-between mb-4">
@@ -114,21 +107,6 @@ function AdminReports() {
 
             {/* Actions */}
             <div className="flex gap-2 flex-wrap">
-              {report.status === 'under_review' && (
-                <>
-                  <button className="px-4 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 rounded-lg transition-colors text-sm font-medium">
-                    Mark as Investigating
-                  </button>
-                  <button className="px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-colors text-sm font-medium">
-                    Resolve
-                  </button>
-                </>
-              )}
-              {report.status === 'investigating' && (
-                <button className="px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-colors text-sm font-medium">
-                  Complete Review
-                </button>
-              )}
               <button className="px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-colors text-sm font-medium">
                 View Full Details
               </button>
@@ -137,7 +115,11 @@ function AdminReports() {
               </button>
             </div>
           </div>
-        ))}
+        )) : (
+          <div className="text-center py-12">
+            <p className="text-gray-400">No reports found</p>
+          </div>
+        )}
       </div>
 
       {/* Stats */}

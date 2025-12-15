@@ -70,9 +70,16 @@ app.get("/api/votes", async (req, res) => {
 });
 
 
-// UPDATE post vote
-app.put("/api/votes/:id", async (req, res) => {
+// UPDATE post vote - JWT koruması ile
+app.put("/api/votes/:id", verifyToken, async (req, res) => {
   try {
+    // JWT token'dan kullanıcı bilgisi alınıyor
+    const userId = req.user.id;
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Giriş yapılmamış kullanıcı" });
+    }
+
     const { votes } = req.body;
     const post = await Post.findByIdAndUpdate(
       req.params.id,
@@ -128,7 +135,7 @@ app.get("/api/posts/:id", async (req, res) => {
 });
 
 // CREATE new post
-app.post("/api/posts", async (req, res) => {
+app.post("/api/posts", verifyToken, async (req, res) => {
   try {
     const { title, content, subreddit, author, image, userId } = req.body;
     
@@ -140,15 +147,18 @@ app.post("/api/posts", async (req, res) => {
     }
 
     const newPost = new Post({
-      title,
+      itle,
       content: content || null,
       subreddit,
-      author: author || "anonymous",
-      userId: userId || null,
+      author: req.user.username,  
+      userId: req.user.id,       
       image: image || null,
+      link: link || null,
       votes: 0,
       comments: 0,
     });
+
+
 
     console.log('DEBUG POST /api/posts - newPost before save:', newPost);
     const savedPost = await newPost.save();
@@ -251,15 +261,17 @@ app.post("/api/communities", async (req, res) => {
     const newCommunity = new Community({
       name,
       description: description || "",
-      members: 0,
+      members: [],
     });
 
     const savedCommunity = await newCommunity.save();
     res.status(201).json(savedCommunity);
   } catch (err) {
+    console.error("Community creation error:", err);
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // UPDATE community
 app.put("/api/communities/:id", async (req, res) => {

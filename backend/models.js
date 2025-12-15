@@ -20,7 +20,7 @@ const postSchema = new mongoose.Schema(
 const communitySchema = new mongoose.Schema(
   {
     name: { type: String, required: true, unique: true },
-    members: { type: Number, default: 0 },
+    members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // membership list
     description: String,
   },
   { timestamps: true }
@@ -42,7 +42,7 @@ const userSchema = new mongoose.Schema(
 const commentSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
-    context: { type: String, required: true },
+    content: { type: String, required: true },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     postId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post', required: true },
     votes: { type: Number, default: 0 },

@@ -2,7 +2,6 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const { User } = require("../models");
 
-// ACCESS TOKEN (15 saniye - test için)
 function generateAccessToken(user){
     return jwt.sign(
         { id: user._id, username: user.username, role: user.role },
@@ -11,7 +10,6 @@ function generateAccessToken(user){
     );
 }
 
-// REFRESH TOKEN (1 dakika - test için)
 function generateRefreshToken(user){
     return jwt.sign(
         { id: user._id, username: user.username, role: user.role },
@@ -101,8 +99,37 @@ exports.refresh = (req, res) => {
 
 // LOGOUT
 exports.logout = (req, res) => {
-
   res.json({ message: "Logout successful" });
+};
+
+// CHANGE USER ROLE
+exports.changeUserRole = async (req, res) => {
+  try {
+    const { userId, role } = req.body;
+
+    if (!userId || !role) {
+      return res.status(400).json({ error: "User ID and role are required" });
+    }
+
+    const validRoles = ['user', 'moderator', 'admin'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ error: "Invalid role" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { role },
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ message: "User role updated successfully", user });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to change user role" });
+  }
 };
 
 

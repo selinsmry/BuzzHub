@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
@@ -14,7 +14,7 @@ function CreateCommunity() {
   const [currentUser, setCurrentUser] = useState(null);
 
   // Kullanıcı giriş yaptığını kontrol et
-  useState(() => {
+  useEffect(() => {
     const user = localStorage.getItem('currentUser');
     if (!user) {
       navigate('/login');

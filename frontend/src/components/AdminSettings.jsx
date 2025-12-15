@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 function AdminSettings() {
   const [settings, setSettings] = useState({
@@ -14,14 +17,24 @@ function AdminSettings() {
   });
 
   const [activeTab, setActiveTab] = useState('general');
+  const [saving, setSaving] = useState(false);
 
   const handleSettingChange = (key, value) => {
     setSettings({ ...settings, [key]: value });
   };
 
-  const handleSave = () => {
-    console.log('Settings saved:', settings);
-    alert('Settings saved successfully!');
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Save to localStorage since backend doesn't have settings endpoint
+      localStorage.setItem('adminSettings', JSON.stringify(settings));
+      alert('Settings saved successfully!');
+    } catch (err) {
+      console.error('Save error:', err);
+      alert('Error saving settings');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -287,9 +300,10 @@ function AdminSettings() {
       <div className="flex gap-3">
         <button
           onClick={handleSave}
-          className="px-6 py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white rounded-xl hover:shadow-lg hover:shadow-orange-500/30 transition-all font-medium"
+          disabled={saving}
+          className="px-6 py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white rounded-xl hover:shadow-lg hover:shadow-orange-500/30 transition-all font-medium disabled:opacity-50"
         >
-          Save Changes
+          {saving ? 'Saving...' : 'Save Changes'}
         </button>
         <button className="px-6 py-3 bg-gray-800/50 hover:bg-gray-800 text-gray-300 rounded-xl transition-all font-medium border border-gray-700/50">
           Cancel

@@ -77,13 +77,13 @@ function CreatePost() {
       // Mevcut kullanıcı bilgisini al
       const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
       console.log('DEBUG CreatePost - currentUser:', currentUser);
-      console.log('DEBUG CreatePost - currentUser._id:', currentUser._id);
+      console.log('DEBUG CreatePost - currentUser.id:', currentUser.id);
       
       const postData = {
         title,
         subreddit,
         author: currentUser.username || 'anonymous_user',
-        userId: currentUser._id || null,
+        userId: currentUser.id || null,
         timeAgo: 'az önce',
       };
 

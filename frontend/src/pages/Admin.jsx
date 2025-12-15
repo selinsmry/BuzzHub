@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 import AdminHeader from '../components/AdminHeader';
@@ -15,6 +15,31 @@ function Admin() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Login kontrolü
+    const accessToken = localStorage.getItem('accessToken');
+    const currentUser = localStorage.getItem('currentUser');
+
+    if (!accessToken || !currentUser) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      const user = JSON.parse(currentUser);
+      // Admin paneline sadece admin ve moderator erişebilir
+      if (user.role !== 'admin' && user.role !== 'moderator') {
+        navigate('/');
+        return;
+      }
+      setLoading(false);
+    } catch (err) {
+      console.error('User data parse error:', err);
+      navigate('/login');
+    }
+  }, [navigate]);
 
   const handleLogout = async () => {
     try {
@@ -51,6 +76,17 @@ function Admin() {
         return <AdminDashboard />;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-orange-500 mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">

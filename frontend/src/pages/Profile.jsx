@@ -38,6 +38,7 @@ function Profile() {
       const userPosts = posts
         .filter(post => post.userId === currentUser.id || post.author === userData.username)
         .map(post => ({
+          _id: post._id,
           id: post._id,
           subreddit: post.subreddit,
           author: post.author,
@@ -45,6 +46,7 @@ function Profile() {
           content: post.content,
           votes: post.votes,
           comments: post.comments,
+          userId: post.userId,
           timeAgo: new Date(post.createdAt).toLocaleDateString('tr-TR'),
         }));
 

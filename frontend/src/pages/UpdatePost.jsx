@@ -124,7 +124,7 @@ function UpdatePost() {
       const updateData = {
         title,
         subreddit,
-        userId: currentUser._id,
+        userId: currentUser.id,
       };
 
       if (postType === 'text') {

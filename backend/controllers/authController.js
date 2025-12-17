@@ -495,7 +495,10 @@ exports.isFollowing = async (req, res) => {
 exports.getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
-    const notifications = await Notification.find({ recipientId: userId })
+    const notifications = await Notification.find({ 
+      recipientId: userId,
+      read: { $ne: true }
+    })
       .populate('senderId', 'username profile_picture')
       .sort({ createdAt: -1 });
 
@@ -520,6 +523,27 @@ exports.markNotificationAsRead = async (req, res) => {
   } catch (error) {
     console.error("[MARK NOTIFICATION ERROR]", error);
     res.status(500).json({ error: "Bildirim güncellenemedi", details: error.message });
+  }
+};
+
+// CLEAR ALL NOTIFICATIONS
+exports.clearAllNotifications = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Tüm bildirimleri read olarak işaretleyelim
+    const result = await Notification.updateMany(
+      { recipientId: userId, read: false },
+      { read: true }
+    );
+
+    res.json({ 
+      message: "Tüm bildirimler temizlendi",
+      modifiedCount: result.modifiedCount 
+    });
+  } catch (error) {
+    console.error("[CLEAR ALL NOTIFICATIONS ERROR]", error);
+    res.status(500).json({ error: "Bildirimler temizlenemedi", details: error.message });
   }
 };
 

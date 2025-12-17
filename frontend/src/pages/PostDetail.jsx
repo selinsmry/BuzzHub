@@ -144,6 +144,12 @@ function PostDetail() {
       return;
     }
 
+    // Yorumların açık olduğunu kontrol et
+    if (post.commentsEnabled === false) {
+      alert('Bu post\'a yorum yapılamaz, yorumlar kapalı');
+      return;
+    }
+
     try {
       setSubmittingComment(true);
       console.log('currentUser object:', currentUser);
@@ -535,112 +541,45 @@ function PostDetail() {
                   <svg className="w-5 h-5 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
                   </svg>
-                  <span>{post.comments || 0} Yorum</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
-                    <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0015.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z" />
-                  </svg>
-                  <span>Paylaşılan</span>
+                  <span>{post.comments || 0} Yorum {post.commentsEnabled === false && '(Kapalı)'}</span>
                 </div>
               </div>
 
               {/* Action Buttons */}
               <div className="flex items-center space-x-3 mt-6 pt-4 border-t border-gray-700/50">
-                <button 
-                  onClick={() => document.querySelector('.comment-form')?.scrollIntoView({ behavior: 'smooth' })}
-                  className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-700/50 rounded-lg transition text-gray-400 hover:text-gray-300">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                    />
-                  </svg>
-                  <span>Yorum Yap</span>
-                </button>
-                <button className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-700/50 rounded-lg transition text-gray-400 hover:text-gray-300">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                    />
-                  </svg>
-                  <span>Paylaş</span>
-                </button>
-                <button className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-700/50 rounded-lg transition text-gray-400 hover:text-gray-300">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                    />
-                  </svg>
-                  <span>Kaydet</span>
-                </button>
+                {post.commentsEnabled !== false && (
+                  <button 
+                    onClick={() => document.querySelector('.comment-form')?.scrollIntoView({ behavior: 'smooth' })}
+                    className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-700/50 rounded-lg transition text-gray-400 hover:text-gray-300">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
+                    </svg>
+                    <span>Yorum Yap</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
 
         {/* Author Profile Card */}
-        {authorData && (
-          <div className="mt-8 bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-100">Gönderi Yazarı</h3>
-              {currentUser && currentUser.username === post.author && (
-                <button
-                  onClick={() => {
-                    setUserBio(authorData.bio || '');
-                    setShowUserEditModal(true);
-                  }}
-                  className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition"
-                >
-                  Profili Düzenle
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-400 to-pink-600 flex items-center justify-center text-2xl font-bold text-white">
-                {post.author?.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1">
-                <h4 className="text-lg font-semibold text-gray-100">{post.author || post.userId?.username || 'Bilinmiyor'}</h4>
-                <p className="text-sm text-gray-400">u/{post.author || post.userId?.username || 'Bilinmiyor'}</p>
-                {authorData.createdAt && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Katılma: {new Date(authorData.createdAt).toLocaleDateString('tr-TR')}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {authorData.bio && (
-              <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700/50">
-                <p className="text-gray-300 text-sm">{authorData.bio}</p>
-              </div>
-            )}
-
-            {!authorData.bio && currentUser && currentUser.username === post.author && (
-              <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700/50">
-                <p className="text-gray-400 text-sm italic">Bio eklenmemiş. Profili düzenle butonunu tıklayarak biyografi ekle.</p>
-              </div>
-            )}
-          </div>
-        )}
+        
 
         {/* Comments Section */}
         <div className="mt-8">
           <h2 className="text-2xl font-bold text-gray-100 mb-6">Yorumlar</h2>
 
           {/* Add Comment Form */}
-          {currentUser ? (
+          {post.commentsEnabled === false ? (
+            <div className="bg-gray-800/50 backdrop-blur-sm border border-orange-500/30 rounded-2xl p-6 mb-6 text-center">
+              <p className="text-gray-300">Bu post'a yorum yapılamaz, yorumlar kapalı</p>
+            </div>
+          ) : currentUser ? (
             <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 mb-6 comment-form">
               <form onSubmit={handleAddComment}>
                 <div className="mb-4">
@@ -683,7 +622,7 @@ function PostDetail() {
           )}
 
           {/* Comments List */}
-          {loadingComments ? (
+          {post.commentsEnabled === false ? null : loadingComments ? (
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
             </div>

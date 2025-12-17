@@ -384,10 +384,8 @@ function CommunityDetail() {
                 </button>
               )}
 
-              {/* Invite Button */}
-              <button className="w-full bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 rounded-lg font-semibold transition">
-                Arkadaşları Davet Et
-              </button>
+             
+             
 
               {/* Back Button */}
               <button

@@ -17,7 +17,8 @@ const {
   getFollowing,
   isFollowing,
   getNotifications,
-  markNotificationAsRead
+  markNotificationAsRead,
+  clearAllNotifications
 } = require("../controllers/authController");
 const verifyAdmin = require("../middleware/verifyAdmin");
 const verifyToken = require("../middleware/verifyToken");
@@ -47,5 +48,6 @@ router.get("/is-following/:userId/:targetUserId", isFollowing);
 // Notification routes
 router.get("/notifications", verifyToken, getNotifications);
 router.put("/notifications/:notificationId/read", verifyToken, markNotificationAsRead);
+router.put("/notifications/clear/all", verifyToken, clearAllNotifications);
 
 module.exports = router;

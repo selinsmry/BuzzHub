@@ -6,6 +6,7 @@ const postSchema = new mongoose.Schema(
     title: { type: String, required: true },
     content: String,
     subreddit: { type: String, required: true },
+    author: { type: String, required: false },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
     votes: { type: Number, default: 0 },
     comments: { type: Number, default: 0 },
@@ -15,6 +16,7 @@ const postSchema = new mongoose.Schema(
     status: { type: String, enum: ['published', 'flagged', 'deleted'], default: 'published' },
     is_locked: { type: Boolean, default: false },
     is_pinned: { type: Boolean, default: false },
+    commentsEnabled: { type: Boolean, default: true },
     reported_count: { type: Number, default: 0 },
     // Track individual votes per user
     userVotes: [{

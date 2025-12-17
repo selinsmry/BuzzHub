@@ -259,9 +259,9 @@ app.get("/api/posts/:id", async (req, res) => {
 // CREATE new post
 app.post("/api/posts", verifyToken, upload.single('image'), async (req, res) => {
   try {
-    const { title, content, subreddit, author, image, userId, communityId } = req.body;
+    const { title, content, subreddit, author, image, userId, communityId, commentsEnabled } = req.body;
     
-    console.log('DEBUG POST /api/posts - Received:', { title, content, subreddit, author, image, userId, communityId });
+    console.log('DEBUG POST /api/posts - Received:', { title, content, subreddit, author, image, userId, communityId, commentsEnabled });
     console.log('DEBUG POST /api/posts - File:', req.file);
 
     // Validation
@@ -305,6 +305,7 @@ app.post("/api/posts", verifyToken, upload.single('image'), async (req, res) => 
       image: imageUrl,
       votes: 0,
       comments: 0,
+      commentsEnabled: commentsEnabled !== 'false' && commentsEnabled !== false,
     });
 
     console.log('DEBUG POST /api/posts - newPost before save:', newPost);
@@ -593,6 +594,14 @@ app.post("/api/comments", upload.single('image'), async (req, res) => {
         fs.unlinkSync(req.file.path);
       }
       return res.status(404).json({ message: "Post bulunamadı" });
+    }
+
+    // Yorumların açık olduğunu kontrol et
+    if (post.commentsEnabled === false) {
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(403).json({ message: "Bu post'a yorum yapılamaz, yorumlar kapalı" });
     }
 
     // Get image URL

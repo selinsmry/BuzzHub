@@ -89,3 +89,13 @@ export const markNotificationAsRead = async (notificationId) => {
     throw error;
   }
 };
+
+// Clear all notifications
+export const clearAllNotifications = async () => {
+  try {
+    const response = await axiosInstance.put('/auth/notifications/clear/all');
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};

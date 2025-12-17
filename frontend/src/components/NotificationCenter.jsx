@@ -60,14 +60,18 @@ function NotificationCenter() {
   };
 
   const clearAllNotifications = async () => {
-    for (const notification of notifications) {
-      try {
-        await userApi.markNotificationAsRead(notification._id);
-      } catch (error) {
-        console.error('Bildirim temizlenirken hata:', error);
-      }
+    try {
+      // Dropdown'ı kapat
+      setShowNotifications(false);
+      // Önce UI'ı güncelleyelim
+      setNotifications([]);
+      // Sonra backend'e tüm bildirimleri temizlemesini söyleyelim
+      await userApi.clearAllNotifications();
+    } catch (error) {
+      console.error('Tüm bildirimler temizlenirken hata:', error);
+      // Hata durumunda re-fetch yap
+      fetchNotifications();
     }
-    setNotifications([]);
   };
 
   const getNotificationIcon = (type) => {

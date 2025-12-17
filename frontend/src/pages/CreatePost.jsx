@@ -21,6 +21,7 @@ function CreatePost() {
   const [loadingCommunities, setLoadingCommunities] = useState(true);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
+  const [commentsEnabled, setCommentsEnabled] = useState(true);
 
   useEffect(() => {
     fetchCommunities();
@@ -117,6 +118,7 @@ function CreatePost() {
       requestData.append('communityId', subreddit);
       requestData.append('author', currentUser.username || 'anonymous_user');
       requestData.append('userId', currentUser.id || null);
+      requestData.append('commentsEnabled', commentsEnabled);
 
       if (postType === 'text') {
         requestData.append('content', sanitizeInput(content));
@@ -374,20 +376,12 @@ function CreatePost() {
             <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
-                defaultChecked
+                checked={commentsEnabled}
+                onChange={(e) => setCommentsEnabled(e.target.checked)}
                 className="w-4 h-4 rounded bg-gray-900 border-gray-700 text-orange-500 focus:ring-orange-500"
               />
               <span className="text-sm font-medium text-gray-300">
                 Yorumları aç
-              </span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer mt-3">
-              <input
-                type="checkbox"
-                className="w-4 h-4 rounded bg-gray-900 border-gray-700 text-orange-500 focus:ring-orange-500"
-              />
-              <span className="text-sm font-medium text-gray-300">
-                Bu gönderiyi sabitle
               </span>
             </label>
           </div>

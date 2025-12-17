@@ -15,7 +15,7 @@ const upload = require("./middleware/uploadMiddleware");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI
+const MONGODB_URI = process.env.MONGODB_URI;
 // MongoDB bağlantısı
 mongoose
   .connect(MONGODB_URI)

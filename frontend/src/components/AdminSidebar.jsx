@@ -9,8 +9,6 @@ function AdminSidebar({ activeTab, setActiveTab, setSidebarOpen, onLogout }) {
     { id: 'communities', label: 'Communities' },
     { id: 'posts', label: 'Posts' },
     { id: 'moderation', label: 'Moderation' },
-    { id: 'reports', label: 'Reports' },
-    { id: 'settings', label: 'Settings' },
   ];
 
   const handleMenuClick = (tabId) => {
@@ -29,13 +27,12 @@ function AdminSidebar({ activeTab, setActiveTab, setSidebarOpen, onLogout }) {
           <button
             key={item.id}
             onClick={() => handleMenuClick(item.id)}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+            className={`w-full flex items-center px-4 py-3 rounded-xl transition-all duration-200 ${
               activeTab === item.id
                 ? 'bg-gradient-to-r from-orange-500 to-pink-600 text-white shadow-lg shadow-orange-500/30'
                 : 'text-gray-300 hover:bg-gray-800/50 hover:text-white'
             }`}
           >
-            <span className="text-xl">{item.icon}</span>
             <span className="font-medium">{item.label}</span>
           </button>
         ))}
@@ -48,22 +45,12 @@ function AdminSidebar({ activeTab, setActiveTab, setSidebarOpen, onLogout }) {
       <div className="space-y-2">
         <button 
           onClick={() => navigate('/')}
-          className="w-full flex items-center space-x-3 px-4 py-3 text-gray-300 hover:bg-blue-500/10 hover:text-blue-400 rounded-xl transition-all duration-200">
-          <span className="text-xl">🏠</span>
+          className="w-full flex items-center px-4 py-3 text-gray-300 hover:bg-blue-500/10 hover:text-blue-400 rounded-xl transition-all duration-200">
           <span className="font-medium">Home</span>
-        </button>
-        <button className="w-full flex items-center space-x-3 px-4 py-3 text-gray-300 hover:bg-gray-800/50 hover:text-white rounded-xl transition-all duration-200">
-          <span className="text-xl"></span>
-          <span className="font-medium">Mobile View</span>
-        </button>
-        <button className="w-full flex items-center space-x-3 px-4 py-3 text-gray-300 hover:bg-gray-800/50 hover:text-white rounded-xl transition-all duration-200">
-          <span className="text-xl"></span>
-          <span className="font-medium">Analytics</span>
         </button>
         <button 
           onClick={onLogout}
-          className="w-full flex items-center space-x-3 px-4 py-3 text-gray-300 hover:bg-red-500/10 hover:text-red-400 rounded-xl transition-all duration-200">
-          <span className="text-xl"></span>
+          className="w-full flex items-center px-4 py-3 text-gray-300 hover:bg-red-500/10 hover:text-red-400 rounded-xl transition-all duration-200">
           <span className="font-medium">Logout</span>
         </button>
       </div>

@@ -515,6 +515,76 @@ app.delete("/api/users/:id", verifyToken, verifyAdmin, async (req, res) => {
   }
 });
 
+// ===== ADMIN API =====
+// GET Recent Activity for Admin Dashboard
+app.get("/api/admin/recent-activity", verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const limit = 10;
+    
+    // En son kullanıcıları getir
+    const recentUsers = await User.find()
+      .select('username createdAt')
+      .sort({ createdAt: -1 })
+      .limit(limit);
+
+    // En son toplulukları getir
+    const recentCommunities = await Community.find()
+      .select('name createdAt')
+      .sort({ createdAt: -1 })
+      .limit(limit);
+
+    // En son yorumları getir
+    const recentComments = await Comment.find()
+      .select('title createdAt userId')
+      .populate('userId', 'username')
+      .sort({ createdAt: -1 })
+      .limit(limit);
+
+    // Tüm aktiviteleri birleştir
+    const activity = [];
+
+    recentUsers.forEach(user => {
+      activity.push({
+        id: `user_${user._id}`,
+        type: 'user_join',
+        message: `Yeni kullanıcı kaydı: ${user.username}`,
+        date: user.createdAt,
+        icon: '👤',
+      });
+    });
+
+    recentCommunities.forEach(community => {
+      activity.push({
+        id: `community_${community._id}`,
+        type: 'community_created',
+        message: `Yeni topluluk oluşturuldu: ${community.name}`,
+        date: community.createdAt,
+        icon: '🏘️',
+      });
+    });
+
+    recentComments.forEach(comment => {
+      activity.push({
+        id: `comment_${comment._id}`,
+        type: 'comment_made',
+        message: `Yorum yapıldı: "${comment.title}" - ${comment.userId?.username || 'Anonim'}`,
+        date: comment.createdAt,
+        icon: '💬',
+      });
+    });
+
+    // Tarihe göre sırala ve son 10'u döndür
+    const sortedActivity = activity
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 10);
+
+    res.json(sortedActivity);
+  } catch (err) {
+    console.error('Admin recent activity hatası:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ===== COMMENTS API =====
 // GET all comments for a post
 app.get("/api/posts/:postId/comments", async (req, res) => {

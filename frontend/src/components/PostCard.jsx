@@ -11,11 +11,15 @@ function PostCard({ post }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
   const [loadingVoteStatus, setLoadingVoteStatus] = useState(false);
+  const [commentCount, setCommentCount] = useState(post.comments || 0);
   
   // Comments modal states
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [comments, setComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
+  const [commentTitle, setCommentTitle] = useState('');
+  const [commentContent, setCommentContent] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
 
   // Memoize post ID to prevent infinite loops
   const postId = useMemo(() => post._id || post.id, [post._id, post.id]);
@@ -144,6 +148,49 @@ function PostCard({ post }) {
     e.stopPropagation();
     setShowCommentsModal(true);
     fetchComments();
+  };
+
+  const handleAddComment = async (e) => {
+    e.preventDefault();
+    
+    if (!currentUser) {
+      alert('Yorum yapmak için giriş yapmanız gerekir');
+      navigate('/login');
+      return;
+    }
+
+    if (!commentTitle.trim() || !commentContent.trim()) {
+      alert('Lütfen yorum başlığı ve içeriği girin');
+      return;
+    }
+
+    try {
+      setSubmittingComment(true);
+      const userId = currentUser._id || currentUser.id;
+      
+      const response = await axiosInstance.post('/comments', {
+        title: commentTitle,
+        content: commentContent,
+        userId: userId,
+        postId: postId,
+      });
+
+      // Yeni yorum listesine ekle
+      setComments([response.data, ...comments]);
+      
+      // Formu temizle
+      setCommentTitle('');
+      setCommentContent('');
+      
+      // Yorum sayısını güncelle
+      setCommentCount(commentCount + 1);
+      
+    } catch (err) {
+      console.error('Yorum eklenirken hata:', err);
+      alert(err.response?.data?.message || err.response?.data?.error || 'Yorum eklenirken hata oluştu');
+    } finally {
+      setSubmittingComment(false);
+    }
   };
 
   return (
@@ -297,7 +344,39 @@ function PostCard({ post }) {
             </div>
 
             {/* Modal Content */}
-            <div className="overflow-y-auto flex-1 p-6">
+            <div className="overflow-y-auto flex-1 p-6 space-y-4">
+              {/* Comment Form */}
+              <form onSubmit={handleAddComment} className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50 space-y-3 mb-4">
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Yorum başlığı..."
+                    value={commentTitle}
+                    onChange={(e) => setCommentTitle(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-orange-500 text-sm"
+                    disabled={submittingComment}
+                  />
+                </div>
+                <div>
+                  <textarea
+                    placeholder="Yorum içeriği..."
+                    value={commentContent}
+                    onChange={(e) => setCommentContent(e.target.value)}
+                    rows="3"
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-orange-500 text-sm resize-none"
+                    disabled={submittingComment}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={submittingComment || !commentTitle.trim() || !commentContent.trim()}
+                  className="w-full px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition text-sm font-semibold"
+                >
+                  {submittingComment ? 'Gönderiliyor...' : 'Yorum Yap'}
+                </button>
+              </form>
+
+              {/* Comments List */}
               {loadingComments ? (
                 <div className="flex justify-center items-center py-12">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>

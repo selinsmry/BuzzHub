@@ -159,7 +159,7 @@ function CommunityDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
+      <div className="min-h-screen">
         <Navbar />
         <div className="flex justify-center items-center h-screen">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
@@ -170,7 +170,7 @@ function CommunityDetail() {
 
   if (error || !community) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
+      <div className="min-h-screen">
         <Navbar />
         <div className="max-w-7xl mx-auto px-4 pt-20">
           <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-6 text-center">
@@ -188,7 +188,7 @@ function CommunityDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
+    <div className="min-h-screen">
       <Navbar />
       
       <div className="max-w-7xl mx-auto px-4 pt-5">

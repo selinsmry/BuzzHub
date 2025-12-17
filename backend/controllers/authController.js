@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const { User, Community } = require("../models");
+const { User, Community, Notification } = require("../models");
 
 function generateAccessToken(user){
     return jwt.sign(
@@ -57,6 +57,15 @@ exports.login = async (req, res) => {
         const user = await User.findOne({ username });
         if(!user) return res.status(404).json({ error: "User not found" });
 
+        // Ban kontrolü
+        if (user.is_suspended) {
+            return res.status(403).json({ 
+                error: "Bu hesap yönetim tarafından yasaklanmıştır",
+                suspended: true,
+                reason: user.suspension_reason || "Yasaklama nedeni belirtilmemiştir"
+            });
+        }
+
         const match = await bcrypt.compare(password, user.password);
         if(!match) return res.status(401).json({ error: "Incorrect password" });
 
@@ -66,7 +75,7 @@ exports.login = async (req, res) => {
         res.json({
             accessToken,
             refreshToken,
-            user: { id: user._id, username: user.username, role: user.role }
+            user: { _id: user._id, id: user._id, username: user.username, role: user.role }
         });
 
     } catch (error) {
@@ -279,6 +288,238 @@ exports.getUserCommunities = async (req, res) => {
   } catch (error) {
     console.error("[GET COMMUNITIES ERROR]", error);
     res.status(500).json({ error: "Failed to get user communities", details: error.message });
+  }
+};
+
+// UPDATE USER PROFILE
+exports.updateUserProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { bio, profile_picture, username } = req.body;
+
+    // Validate input
+    if (!bio && !profile_picture && !username) {
+      return res.status(400).json({ error: "En az bir alan güncellenmelidir" });
+    }
+
+    // Update user
+    const updateData = {};
+    if (bio !== undefined) updateData.bio = bio;
+    if (profile_picture !== undefined) updateData.profile_picture = profile_picture;
+    
+    // Username güncellemesi - duplicate check
+    if (username !== undefined && username.trim() !== '') {
+      // Mevcut kullanıcı adını kontrol et
+      const currentUser = await User.findById(userId);
+      
+      // Yeni kullanıcı adı ile eski aynı değilse ve başka biri kullanıyorsa hata ver
+      if (username !== currentUser.username) {
+        const existingUser = await User.findOne({ username: username.trim() });
+        if (existingUser) {
+          return res.status(400).json({ error: "Bu kullanıcı adı zaten kullanılmakta" });
+        }
+      }
+      
+      updateData.username = username.trim();
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ 
+      message: "Profil başarıyla güncellendi",
+      user 
+    });
+  } catch (error) {
+    console.error("[UPDATE PROFILE ERROR]", error);
+    res.status(500).json({ error: "Profil güncellenemedi", details: error.message });
+  }
+};
+
+// GET USER BY ID
+exports.getUserById = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId).select("-password");
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error("[GET USER ERROR]", error);
+    res.status(500).json({ error: "Failed to get user", details: error.message });
+  }
+};
+
+// FOLLOW USER
+exports.followUser = async (req, res) => {
+  try {
+    const { userIdToFollow } = req.body;
+    const currentUserId = req.user.id;
+
+    if (currentUserId === userIdToFollow) {
+      return res.status(400).json({ error: "Kendinizi takip edemezsiniz" });
+    }
+
+    const currentUser = await User.findById(currentUserId);
+    const userToFollow = await User.findById(userIdToFollow);
+
+    if (!userToFollow) {
+      return res.status(404).json({ error: "Takip edilecek kullanıcı bulunamadı" });
+    }
+
+    // Zaten takip edip etmediğini kontrol et
+    if (currentUser.following.includes(userIdToFollow)) {
+      return res.status(400).json({ error: "Zaten bu kullanıcıyı takip ediyorsunuz" });
+    }
+
+    // Following ve followers listelerine ekle
+    currentUser.following.push(userIdToFollow);
+    userToFollow.followers.push(currentUserId);
+
+    await currentUser.save();
+    await userToFollow.save();
+
+    // Bildirim oluştur
+    const notification = await Notification.create({
+      recipientId: userIdToFollow,
+      senderId: currentUserId,
+      type: 'follow',
+      message: `${currentUser.username} sizi takip etmeye başladı`,
+      link: `/profile/${currentUserId}`
+    });
+
+    res.json({ 
+      message: "Başarıyla takip ettiniz", 
+      notification: notification 
+    });
+  } catch (error) {
+    console.error("[FOLLOW USER ERROR]", error);
+    res.status(500).json({ error: "Takip işlemi başarısız oldu", details: error.message });
+  }
+};
+
+// UNFOLLOW USER
+exports.unfollowUser = async (req, res) => {
+  try {
+    const { userIdToUnfollow } = req.body;
+    const currentUserId = req.user.id;
+
+    const currentUser = await User.findById(currentUserId);
+    const userToUnfollow = await User.findById(userIdToUnfollow);
+
+    if (!userToUnfollow) {
+      return res.status(404).json({ error: "Kullanıcı bulunamadı" });
+    }
+
+    // Following ve followers listesinden kaldır
+    currentUser.following = currentUser.following.filter(
+      id => id.toString() !== userIdToUnfollow
+    );
+    userToUnfollow.followers = userToUnfollow.followers.filter(
+      id => id.toString() !== currentUserId
+    );
+
+    await currentUser.save();
+    await userToUnfollow.save();
+
+    res.json({ message: "Başarıyla takip etmeyi bıraktınız" });
+  } catch (error) {
+    console.error("[UNFOLLOW USER ERROR]", error);
+    res.status(500).json({ error: "Takip etmeyi bırakma işlemi başarısız", details: error.message });
+  }
+};
+
+// GET FOLLOWERS
+exports.getFollowers = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId).populate('followers', '-password');
+
+    if (!user) {
+      return res.status(404).json({ error: "Kullanıcı bulunamadı" });
+    }
+
+    res.json({ followers: user.followers });
+  } catch (error) {
+    console.error("[GET FOLLOWERS ERROR]", error);
+    res.status(500).json({ error: "Takipçiler getirilemedi", details: error.message });
+  }
+};
+
+// GET FOLLOWING
+exports.getFollowing = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId).populate('following', '-password');
+
+    if (!user) {
+      return res.status(404).json({ error: "Kullanıcı bulunamadı" });
+    }
+
+    res.json({ following: user.following });
+  } catch (error) {
+    console.error("[GET FOLLOWING ERROR]", error);
+    res.status(500).json({ error: "Takip edilen kullanıcılar getirilemedi", details: error.message });
+  }
+};
+
+// CHECK IF FOLLOWING
+exports.isFollowing = async (req, res) => {
+  try {
+    const { userId, targetUserId } = req.params;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: "Kullanıcı bulunamadı" });
+    }
+
+    const isFollowing = user.following.some(id => id.toString() === targetUserId);
+    res.json({ isFollowing });
+  } catch (error) {
+    console.error("[CHECK FOLLOWING ERROR]", error);
+    res.status(500).json({ error: "Kontrol işlemi başarısız", details: error.message });
+  }
+};
+
+// GET NOTIFICATIONS
+exports.getNotifications = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const notifications = await Notification.find({ recipientId: userId })
+      .populate('senderId', 'username profile_picture')
+      .sort({ createdAt: -1 });
+
+    res.json({ notifications });
+  } catch (error) {
+    console.error("[GET NOTIFICATIONS ERROR]", error);
+    res.status(500).json({ error: "Bildirimler getirilemedi", details: error.message });
+  }
+};
+
+// MARK NOTIFICATION AS READ
+exports.markNotificationAsRead = async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    const notification = await Notification.findByIdAndUpdate(
+      notificationId,
+      { read: true },
+      { new: true }
+    );
+
+    res.json({ notification });
+  } catch (error) {
+    console.error("[MARK NOTIFICATION ERROR]", error);
+    res.status(500).json({ error: "Bildirim güncellenemedi", details: error.message });
   }
 };
 

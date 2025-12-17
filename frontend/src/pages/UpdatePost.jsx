@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstance from '../api/axiosInstance';
 import Navbar from '../components/Navbar';
 
 function UpdatePost() {
@@ -11,6 +11,7 @@ function UpdatePost() {
   const [content, setContent] = useState('');
   const [link, setLink] = useState('');
   const [subreddit, setSubreddit] = useState('');
+  const [communityId, setCommunityId] = useState('');
   const [votes, setVotes] = useState(0);
   const [comments, setComments] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,8 +35,7 @@ function UpdatePost() {
 
   const fetchCommunities = async () => {
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      const response = await axios.get(`${apiUrl}/communities`);
+      const response = await axiosInstance.get(`/communities`);
       const communitiesList = response.data.communities || response.data || [];
       console.log('Fetched communities:', communitiesList);
       setCommunities(communitiesList);
@@ -63,15 +63,38 @@ function UpdatePost() {
   useEffect(() => {
     const fetchPost = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-        const response = await axios.get(`${apiUrl}/posts/${id}`);
+        const response = await axiosInstance.get(`/posts/${id}`);
         const fetchedPost = response.data;
+        
+        // Ownership kontrolü yap
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        if (!user) {
+          setError('Bu işlem için giriş yapmanız gerekiyor');
+          setIsLoading(false);
+          setTimeout(() => navigate('/login'), 2000);
+          return;
+        }
+        
+        const userId = user._id || user.id;
+        const postOwnerId = typeof fetchedPost.userId === 'object' ? fetchedPost.userId._id : fetchedPost.userId;
+        
+        if (String(userId) !== String(postOwnerId)) {
+          setError('Bu gönderiyi düzenlemek için yetkiniz yok');
+          setIsLoading(false);
+          setTimeout(() => navigate('/'), 2000);
+          return;
+        }
+        
         setPost(fetchedPost);
 
         setTitle(fetchedPost.title);
         setContent(fetchedPost.content || '');
         setLink(fetchedPost.image || fetchedPost.link || '');
         setSubreddit(fetchedPost.subreddit);
+        // Community ID'si varsa onu da set et
+        if (fetchedPost.communities) {
+          setCommunityId(fetchedPost.communities);
+        }
         setVotes(fetchedPost.votes || 0);
         setComments(fetchedPost.comments || 0);
         
@@ -119,15 +142,10 @@ function UpdatePost() {
     setIsSubmitting(true);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      
-      // Mevcut kullanıcı bilgisini al
-      const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-
       const updateData = {
         title,
         subreddit,
-        userId: currentUser.id,
+        communityId: subreddit,
       };
 
       if (postType === 'text') {
@@ -138,7 +156,7 @@ function UpdatePost() {
         updateData.image = link;
       }
 
-      const response = await axios.put(`${apiUrl}/posts/${id}`, updateData);
+      const response = await axiosInstance.put(`/posts/${id}`, updateData);
 
       if (response.status === 200) {
         setError('');
@@ -296,7 +314,7 @@ function UpdatePost() {
                 <p className="text-xs text-gray-400 mt-1">Salt okunur - değiştirilemez</p>
               </div>
             </div>
-          </div>k
+          </div>
 
           {/* Action Buttons */}
           <div className="flex gap-4">

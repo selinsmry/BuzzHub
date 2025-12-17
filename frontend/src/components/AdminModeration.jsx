@@ -10,6 +10,9 @@ function AdminModeration() {
     usersBanned: 0,
     postsRemoved: 0,
   });
+  const [selectedUser, setSelectedUser] = useState('');
+  const [showBanModal, setShowBanModal] = useState(false);
+  const [warningReason, setWarningReason] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -50,6 +53,119 @@ function AdminModeration() {
       console.error('[ADMIN MODERATION] Error removing post:', err);
       alert('İşlem sırasında hata oluştu');
     }
+  };
+
+  const handleApprovePost = async (postId) => {
+    try {
+      await axiosInstance.put(`/posts/${postId}`, {
+        status: 'published'
+      });
+      setPosts(posts.filter(p => p._id !== postId));
+      setStats({ ...stats, actionsThisWeek: stats.actionsThisWeek + 1 });
+      alert('✅ Gönderi onaylandı');
+    } catch (err) {
+      console.error('[ADMIN MODERATION] Error approving post:', err);
+      alert('❌ İşlem sırasında hata oluştu');
+    }
+  };
+
+  const handleBanUser = async () => {
+    if (!selectedUser.trim()) {
+      alert('Lütfen bir kullanıcı adı girin');
+      return;
+    }
+    if (window.confirm(`${selectedUser} kullanıcısını yasaklamak istediğinize emin misiniz?`)) {
+      try {
+        // Kullanıcıyı username'den bul
+        const userResponse = await axiosInstance.get(`/users/username/${selectedUser}`);
+        const user = userResponse.data;
+        
+        if (!user._id) {
+          alert('❌ Kullanıcı bulunamadı');
+          return;
+        }
+        
+        // Backend'te ban işlemini yap
+        await axiosInstance.put(`/users/${user._id}`, {
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          is_suspended: true,
+          suspension_reason: warningReason || 'Yönetim tarafından yasaklandı'
+        });
+        
+        // Notification oluştur
+        const notification = {
+          id: Date.now(),
+          type: 'error',
+          title: '🚫 Hesap Yasaklandı',
+          message: `Maalesef hesabınız yönetim kararı ile yasaklandı. ${warningReason ? `Neden: ${warningReason}` : 'Daha fazla bilgi için destek ekibiyle iletişime geçin.'}`,
+          timestamp: new Date().toISOString(),
+          targetUser: selectedUser
+        };
+        
+        const userNotificationKey = `notifications_${selectedUser}`;
+        const userNotifications = JSON.parse(localStorage.getItem(userNotificationKey) || '[]');
+        userNotifications.push(notification);
+        localStorage.setItem(userNotificationKey, JSON.stringify(userNotifications));
+        
+        setStats({ ...stats, usersBanned: stats.usersBanned + 1, actionsThisWeek: stats.actionsThisWeek + 1 });
+        alert(`✅ ${selectedUser} kullanıcısı yasaklandı`);
+        setSelectedUser('');
+        setWarningReason('');
+        setShowBanModal(false);
+      } catch (err) {
+        console.error('Ban error:', err);
+        alert(`❌ Hata: ${err.response?.data?.message || err.message}`);
+      }
+    }
+  };
+
+  const handleRemovePostFromTools = async () => {
+    if (posts.length === 0) {
+      alert('İşlem yapabileceğiniz gönderi yok');
+      return;
+    }
+    const postToRemove = posts[0];
+    await handleRemovePost(postToRemove._id);
+  };
+
+  const handleSendWarning = () => {
+    if (!selectedUser.trim() || !warningReason.trim()) {
+      alert('Lütfen kullanıcı adı ve uyarı nedenini girin');
+      return;
+    }
+    if (window.confirm(`${selectedUser} kullanıcısına uyarı göndermek istediğinize emin misiniz?`)) {
+      // Notification oluştur ve hedef kullanıcıya gönder
+      const notification = {
+        id: Date.now(),
+        type: 'warning',
+        title: '⚠️ Yönetici Uyarısı',
+        message: `Uyarı Nedeni: ${warningReason}`,
+        timestamp: new Date().toISOString(),
+        targetUser: selectedUser // Uyarı alan kullanıcı
+      };
+      
+      // Hedef kullanıcının notification'ını localStorage'a ekle
+      const userNotificationKey = `notifications_${selectedUser}`;
+      const userNotifications = JSON.parse(localStorage.getItem(userNotificationKey) || '[]');
+      userNotifications.push(notification);
+      localStorage.setItem(userNotificationKey, JSON.stringify(userNotifications));
+      
+      // Admin tarafı
+      setStats({ ...stats, usersWarned: stats.usersWarned + 1, actionsThisWeek: stats.actionsThisWeek + 1 });
+      alert(`✅ ${selectedUser} kullanıcısına uyarı gönderildi: ${warningReason}`);
+      setSelectedUser('');
+      setWarningReason('');
+    }
+  };
+
+  const handleApproveContentFromTools = () => {
+    if (posts.length === 0) {
+      alert('İşlem yapabileceğiniz gönderi yok');
+      return;
+    }
+    handleApprovePost(posts[0]._id);
   };
 
   return (
@@ -94,7 +210,9 @@ function AdminModeration() {
                 className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors text-sm font-medium">
                 Remove
               </button>
-              <button className="px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-colors text-sm font-medium">
+              <button
+                onClick={() => handleApprovePost(post._id)}
+                className="px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-colors text-sm font-medium">
                 Approve
               </button>
               <button className="px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-colors text-sm font-medium">
@@ -114,16 +232,24 @@ function AdminModeration() {
         <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 shadow-xl">
           <h3 className="text-lg font-bold text-white mb-4">🛠️ Moderation Tools</h3>
           <div className="space-y-2">
-            <button className="w-full px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl transition-colors border border-blue-500/30 text-sm font-medium">
+            <button 
+              onClick={() => setShowBanModal(true)}
+              className="w-full px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl transition-colors border border-blue-500/30 text-sm font-medium">
               Ban User
             </button>
-            <button className="w-full px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-xl transition-colors border border-purple-500/30 text-sm font-medium">
+            <button 
+              onClick={handleRemovePostFromTools}
+              className="w-full px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-xl transition-colors border border-purple-500/30 text-sm font-medium">
               Remove Post
             </button>
-            <button className="w-full px-4 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 rounded-xl transition-colors border border-orange-500/30 text-sm font-medium">
+            <button 
+              onClick={() => setShowBanModal(true)}
+              className="w-full px-4 py-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 rounded-xl transition-colors border border-orange-500/30 text-sm font-medium">
               Send Warning
             </button>
-            <button className="w-full px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-xl transition-colors border border-green-500/30 text-sm font-medium">
+            <button 
+              onClick={handleApproveContentFromTools}
+              className="w-full px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-xl transition-colors border border-green-500/30 text-sm font-medium">
               Approve Content
             </button>
           </div>
@@ -151,6 +277,69 @@ function AdminModeration() {
           </div>
         </div>
       </div>
+
+      {/* Ban/Warning Modal */}
+      {showBanModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 rounded-xl p-4">
+          <div className="bg-gray-800 border border-gray-700/50 rounded-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-white mb-6">Moderation Action</h2>
+            
+            <div className="space-y-4">
+              {/* Username Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Kullanıcı Adı</label>
+                <input
+                  type="text"
+                  value={selectedUser}
+                  onChange={(e) => setSelectedUser(e.target.value)}
+                  placeholder="örn: user123"
+                  className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 transition-colors"
+                />
+              </div>
+
+              {/* Reason/Warning Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Uyarı Nedeni (isteğe bağlı)</label>
+                <textarea
+                  value={warningReason}
+                  onChange={(e) => setWarningReason(e.target.value)}
+                  placeholder="Neden uyarı/ban veriyorsunuz?"
+                  className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 transition-colors resize-none"
+                  rows="3"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-2 gap-3 pt-4">
+                <button
+                  onClick={handleBanUser}
+                  className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors text-sm font-medium border border-red-500/30"
+                >
+                  Ban
+                </button>
+                <button
+                  onClick={handleSendWarning}
+                  className="px-4 py-2 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded-lg transition-colors text-sm font-medium border border-orange-500/30"
+                >
+                  Uyar
+                </button>
+              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => {
+                  setShowBanModal(false);
+                  setSelectedUser('');
+                  setWarningReason('');
+                }}
+                className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors text-sm font-medium mt-2"
+              >
+                İptal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -114,6 +114,7 @@ function CreatePost() {
       const requestData = new FormData();
       requestData.append('title', sanitizeInput(title));
       requestData.append('subreddit', subreddit);
+      requestData.append('communityId', subreddit);
       requestData.append('author', currentUser.username || 'anonymous_user');
       requestData.append('userId', currentUser.id || null);
 

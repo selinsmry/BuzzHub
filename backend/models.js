@@ -35,7 +35,8 @@ const communitySchema = new mongoose.Schema(
     rules: [String],
     is_private: { type: Boolean, default: false },
     member_count: { type: Number, default: 0 },
-    icon: String
+    icon: String,
+    post_count: {type: Number, default: 0},
   },
   { timestamps: true }
 );
@@ -54,6 +55,8 @@ const userSchema = new mongoose.Schema(
     suspension_reason: String,
     suspension_until: Date,
     communities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Community' }],
+    followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     createdAt: { type: Date, default: Date.now },
   },
   { timestamps: true }
@@ -73,9 +76,24 @@ const commentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Notification Schema
+const notificationSchema = new mongoose.Schema(
+  {
+    recipientId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    type: { type: String, enum: ['follow', 'comment', 'post', 'mention'], required: true },
+    message: { type: String, required: true },
+    read: { type: Boolean, default: false },
+    link: String,
+    createdAt: { type: Date, default: Date.now },
+  },
+  { timestamps: true }
+);
+
 module.exports = {
   Post: mongoose.model('Post', postSchema),
   Community: mongoose.model('Community', communitySchema),
   User: mongoose.model('User', userSchema),
-  Comment: mongoose.model('Comment', commentSchema)
+  Comment: mongoose.model('Comment', commentSchema),
+  Notification: mongoose.model('Notification', notificationSchema)
 };

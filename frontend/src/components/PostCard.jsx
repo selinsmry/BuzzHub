@@ -39,15 +39,27 @@ function PostCard({ post }) {
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
     setCurrentUser(user);
-    if (user && user.id && post.userId && String(user.id) === String(post.userId)) {
-      setIsOwner(true);
+    
+    // Check ownership: user.id or user._id
+    if (user && post.userId) {
+      const userId = user._id || user.id;
+      // Handle both object and string format for userId
+      const postOwnerId = typeof post.userId === 'object' ? post.userId._id : post.userId;
+      if (String(userId) === String(postOwnerId)) {
+        setIsOwner(true);
+      } else {
+        setIsOwner(false);
+      }
     } else {
       setIsOwner(false);
     }
 
     // Fetch user's vote status from backend
-    if (user && user.id) {
-      fetchUserVoteStatus(user.id);
+    if (user) {
+      const userId = user._id || user.id;
+      if (userId) {
+        fetchUserVoteStatus(userId);
+      }
     } else {
       setVoteStatus(null);
     }
@@ -178,7 +190,15 @@ function PostCard({ post }) {
               </span>
               <span className="mx-1.5 flex-shrink-0">•</span>
               <span className="flex-shrink-0">Gönderen</span>
-              <span className="ml-1 hover:underline cursor-pointer text-gray-400 hover:text-gray-300 transition truncate">u/{post.author}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/user/${post.userId?._id || post.userId}`);
+                }}
+                className="ml-1 hover:underline cursor-pointer text-gray-400 hover:text-orange-400 transition truncate font-semibold"
+              >
+                u/{post.author || post.userId?.username || 'Bilinmiyor'}
+              </button>
               <span className="mx-1.5 flex-shrink-0">•</span>
               <span className="flex-shrink-0">{post.timeAgo}</span>
             </div>

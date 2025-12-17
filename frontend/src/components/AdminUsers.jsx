@@ -94,6 +94,32 @@ function AdminUsers() {
     setShowModal(true);
   };
 
+  const handleSuspendUser = async (userId, currentStatus) => {
+    const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended';
+    const confirmMsg = newStatus === 'suspended' 
+      ? 'Bu kullanıcıyı askıya almak istediğinize emin misiniz?' 
+      : 'Bu kullanıcının askıya alınmasını kaldırmak istediğinize emin misiniz?';
+    
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const userData = users.find(u => u._id === userId);
+      await axiosInstance.put(`/users/${userId}`, {
+        username: userData.username,
+        email: userData.email,
+        role: userData.role,
+        is_suspended: newStatus === 'suspended',
+        suspension_reason: newStatus === 'suspended' ? 'Admin tarafından askıya alındı' : null
+      });
+      setUsers(users.map(u => u._id === userId ? { ...u, status: newStatus, is_suspended: newStatus === 'suspended' } : u));
+      alert(`✅ Kullanıcı başarıyla ${newStatus === 'suspended' ? 'askıya alındı' : 'aktif duruma getirildi'}`);
+    } catch (err) {
+      const errorMessage = handleApiError(err);
+      console.error('Suspend error:', err);
+      alert(`❌ Hata: ${errorMessage}`);
+    }
+  };
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -267,7 +293,9 @@ function AdminUsers() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
-                      <button className="p-1.5 hover:bg-yellow-500/20 text-yellow-400 rounded-lg transition-colors" title="Suspend User">
+                      <button 
+                        onClick={() => handleSuspendUser(user._id, user.status)}
+                        className="p-1.5 hover:bg-yellow-500/20 text-yellow-400 rounded-lg transition-colors" title={user.status === 'suspended' ? "Unsuspend User" : "Suspend User"}>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>

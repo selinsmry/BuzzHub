@@ -117,6 +117,12 @@ function AdminCommunities() {
     setShowModal(true);
   };
 
+  const openEditModal = (community) => {
+    setEditingCommunity(community);
+    setFormData({ name: community.name, description: community.description || '' });
+    setShowModal(true);
+  };
+
   const filteredCommunities = communities.filter(community =>
     community.name.toLowerCase().includes(searchTerm.toLowerCase())
   );

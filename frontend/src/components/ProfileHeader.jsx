@@ -1,4 +1,42 @@
-function ProfileHeader({ user }) {
+import { useState, useEffect } from 'react';
+import * as userApi from '../api/userApi';
+
+function ProfileHeader({ user, isOwnProfile = false, onEditClick, currentUserId }) {
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOwnProfile && user?.id && currentUserId) {
+      checkFollowStatus();
+    }
+  }, [user?.id, currentUserId, isOwnProfile]);
+
+  const checkFollowStatus = async () => {
+    try {
+      const response = await userApi.isFollowing(currentUserId, user.id);
+      setIsFollowing(response.isFollowing);
+    } catch (error) {
+      console.error('Takip durumu kontrol edilirken hata:', error);
+    }
+  };
+
+  const handleFollowClick = async () => {
+    try {
+      setLoading(true);
+      if (isFollowing) {
+        await userApi.unfollowUser(user.id);
+      } else {
+        await userApi.followUser(user.id);
+      }
+      setIsFollowing(!isFollowing);
+    } catch (error) {
+      console.error('Takip işlemi başarısız oldu:', error);
+      alert(error.response?.data?.error || 'İşlem başarısız oldu');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="mb-6">
       {/* Cover Image */}
@@ -18,14 +56,30 @@ function ProfileHeader({ user }) {
 
         {/* Action Buttons */}
         <div className="flex gap-3 mb-2">
-          <button className="px-6 py-2 bg-gradient-to-r from-orange-500 to-pink-600 text-white rounded-xl font-bold hover:from-orange-600 hover:to-pink-700 transition-all shadow-lg shadow-orange-500/20">
-            Takip Et
-          </button>
-          <button className="px-4 py-2 bg-gray-700 text-gray-300 rounded-xl hover:bg-gray-600 transition">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </button>
+          {isOwnProfile ? (
+            <>
+              <button
+                onClick={onEditClick}
+                className="px-6 py-2 bg-gradient-to-r from-orange-500 to-pink-600 text-white rounded-xl font-bold hover:from-orange-600 hover:to-pink-700 transition-all shadow-lg shadow-orange-500/20"
+              >
+                Profili Düzenle
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleFollowClick}
+                disabled={loading}
+                className={`px-6 py-2 rounded-xl font-bold transition-all shadow-lg ${
+                  isFollowing
+                    ? 'bg-gray-700 text-white hover:bg-gray-600 shadow-gray-700/20'
+                    : 'bg-gradient-to-r from-orange-500 to-pink-600 text-white hover:from-orange-600 hover:to-pink-700 shadow-orange-500/20'
+                } disabled:opacity-50`}
+              >
+                {loading ? 'İşlem yapılıyor...' : isFollowing ? 'Takibi Bırak' : 'Takip Et'}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -34,20 +88,6 @@ function ProfileHeader({ user }) {
         <p className="text-gray-300 leading-relaxed">
           {user.bio}
         </p>
-        <div className="flex gap-6 mt-4 text-sm text-gray-400">
-          <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-            </svg>
-            <span>{user.location}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M17.778 8.222c-4.296-4.296-11.26-4.296-15.556 0A1 1 0 01.808 6.808c5.076-5.077 13.308-5.077 18.384 0a1 1 0 01-1.414 1.414zM14.95 11.05a7 7 0 00-9.9 0 1 1 0 01-1.414-1.414 9 9 0 0112.728 0 1 1 0 01-1.414 1.414zM12.12 13.88a3 3 0 00-4.242 0 1 1 0 01-1.415-1.415 5 5 0 017.072 0 1 1 0 01-1.415 1.415zM9 16a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" />
-            </svg>
-            <span>{user.website}</span>
-          </div>
-        </div>
       </div>
     </div>
   );

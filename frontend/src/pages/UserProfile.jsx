@@ -1,57 +1,45 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
+import * as userApi from '../api/userApi';
 import Navbar from '../components/Navbar';
 import ProfileHeader from '../components/ProfileHeader';
 import ProfileStats from '../components/ProfileStats';
-import EditProfileModal from '../components/EditProfileModal';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
-function Profile() {
+function UserProfile() {
+  const { userId } = useParams();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isOwnProfile, setIsOwnProfile] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   useEffect(() => {
-    fetchUserAndPosts();
-  }, []);
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    setCurrentUserId(currentUser.id);
+    fetchUserProfile();
+  }, [userId]);
 
-  const fetchUserAndPosts = async () => {
+  const fetchUserProfile = async () => {
     try {
       setLoading(true);
       
-      // localStorage'dan giriş yapan kullanıcıyı al
-      const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-      
-      if (!currentUser || !currentUser.id) {
-        setError('Lütfen giriş yapınız');
-        setLoading(false);
-        return;
-      }
-
-      // Kendi profili mi kontrol et
-      setIsOwnProfile(true);
-      
-      // Kullanıcı bilgisi fetch et (gerçek kullanıcı ID'si ile)
-      const userResponse = await axiosInstance.get(`/auth/users/${currentUser.id}`);
+      // Kullanıcı bilgisi fetch et
+      const userResponse = await axiosInstance.get(`/auth/users/${userId}`);
       const userData = userResponse.data;
 
       // Followers ve Following bilgilerini al
-      const followersResponse = await axiosInstance.get(`/auth/followers/${currentUser.id}`);
-      const followingResponse = await axiosInstance.get(`/auth/following/${currentUser.id}`);
+      const followersResponse = await axiosInstance.get(`/auth/followers/${userId}`);
+      const followingResponse = await axiosInstance.get(`/auth/following/${userId}`);
       
       const followers = followersResponse.data.followers || [];
       const following = followingResponse.data.following || [];
 
-      // Kullanıcının postlarını fetch et (userId parametresi ile)
-      const postsResponse = await axiosInstance.get(`/posts?userId=${currentUser.id}`);
+      // Kullanıcının postlarını fetch et
+      const postsResponse = await axiosInstance.get(`/posts?userId=${userId}`);
       const posts = postsResponse.data.posts || postsResponse.data;
       const userPosts = posts
         .map(post => {
-          // userId populate edilmiş bir nesne olabilir
-          const userId = typeof post.userId === 'object' ? post.userId._id : post.userId;
+          const postUserId = typeof post.userId === 'object' ? post.userId._id : post.userId;
           return {
             _id: post._id,
             id: post._id,
@@ -61,13 +49,13 @@ function Profile() {
             content: post.content,
             votes: post.votes,
             comments: post.comments,
-            userId: userId,
+            userId: postUserId,
             timeAgo: new Date(post.createdAt).toLocaleDateString('tr-TR'),
           };
         });
 
       // Kullanıcının yorumlarını fetch et
-      const commentsResponse = await axiosInstance.get(`/comments?userId=${currentUser.id}`);
+      const commentsResponse = await axiosInstance.get(`/comments?userId=${userId}`);
       const userComments = (commentsResponse.data || [])
         .map(comment => ({
           _id: comment._id,
@@ -80,13 +68,14 @@ function Profile() {
           timeAgo: new Date(comment.createdAt).toLocaleDateString('tr-TR'),
         }));
 
-      // Kullanıcı bilgisini, postları ve yorumları state'e kaydet
       setUser({
         id: userData._id,
         name: userData.username,
         username: userData.username,
         joinDate: new Date(userData.createdAt).toLocaleDateString('tr-TR'),
-        bio: userData.bio || 'Biyografi giriniz.',
+        bio: userData.bio || '👤 BuzzHub Kullanıcısı',
+        location: '📍 Türkiye',
+        website: '🌐 toplulukapp.com',
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userData.username}`,
         stats: {
           postCount: userPosts.length,
@@ -101,20 +90,11 @@ function Profile() {
       
       setError(null);
     } catch (err) {
-      console.error('Kullanıcı verileri yüklenirken hata:', err);
-      setError('Kullanıcı verileri yüklenemedi');
+      console.error('Kullanıcı profili yüklenirken hata:', err);
+      setError('Kullanıcı profili yüklenemedi');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleEditSuccess = (updatedUser) => {
-    setUser(prev => ({
-      ...prev,
-      username: updatedUser.username || prev.username,
-      name: updatedUser.username || prev.name,
-      bio: updatedUser.bio || prev.bio,
-    }));
   };
 
   if (loading) {
@@ -128,12 +108,12 @@ function Profile() {
     );
   }
 
-  if (error && !user) {
+  if (error || !user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
         <Navbar />
         <div className="flex items-center justify-center h-screen">
-          <p className="text-red-400">{error}</p>
+          <p className="text-red-400">{error || 'Kullanıcı bulunamadı'}</p>
         </div>
       </div>
     );
@@ -147,23 +127,15 @@ function Profile() {
           <>
             <ProfileHeader 
               user={user} 
-              isOwnProfile={isOwnProfile}
-              onEditClick={() => setIsEditModalOpen(true)}
+              isOwnProfile={false}
+              currentUserId={currentUserId}
             />
             <ProfileStats user={user} />
           </>
         )}
       </div>
-      
-      {isEditModalOpen && (
-        <EditProfileModal
-          user={user}
-          onClose={() => setIsEditModalOpen(false)}
-          onSuccess={handleEditSuccess}
-        />
-      )}
     </div>
   );
 }
 
-export default Profile;
+export default UserProfile;

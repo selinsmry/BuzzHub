@@ -1,27 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import Navbar from '../components/Navbar';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import axiosInstance from '../api/axiosInstance';
 
 function CreateCommunity() {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [rules, setRules] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
-
-  // Kullanıcı giriş yaptığını kontrol et
-  useEffect(() => {
-    const user = localStorage.getItem('currentUser');
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-    setCurrentUser(JSON.parse(user));
-  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -45,34 +33,37 @@ function CreateCommunity() {
     setIsSubmitting(true);
 
     try {
+      const rulesArray = rules
+        .split('\n')
+        .map(rule => rule.trim())
+        .filter(rule => rule.length > 0);
+
       const communityData = {
         name: name.trim().toLowerCase(),
         description: description.trim() || '',
+        rules: rulesArray,
       };
 
-      const response = await axios.post(`${API_URL}/communities`, communityData);
+      const response = await axiosInstance.post('/communities', communityData);
 
       if (response.status === 201) {
         setError('');
         setName('');
         setDescription('');
+        setRules('');
         navigate('/communities');
       }
     } catch (err) {
       if (err.response?.status === 400) {
-        setError('Bu topluluk adı zaten kullanılıyor');
+        setError(err.response?.data?.error || 'Bu topluluk adı zaten kullanılıyor');
       } else {
-        setError(err.response?.data?.message || 'Topluluk oluşturulurken hata oluştu. Lütfen tekrar deneyiniz.');
+        setError(err.response?.data?.error || 'Topluluk oluşturulurken hata oluştu. Lütfen tekrar deneyiniz.');
       }
       console.error('Error creating community:', err);
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  if (!currentUser) {
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
@@ -138,6 +129,21 @@ function CreateCommunity() {
               <div className="text-xs text-gray-500 mt-2">
                 {description.length} / 500 karakter
               </div>
+            </div>
+
+            {/* Rules */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-200 mb-3">
+                Kurallar (Her satıra bir kural)
+              </label>
+              <textarea
+                value={rules}
+                onChange={(e) => setRules(e.target.value)}
+                placeholder="1. Saygılı ol&#10;2. Spam yapma&#10;3. Hakaret etme"
+                rows="4"
+                className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-gray-100 placeholder-gray-600 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all resize-none"
+              />
+              <p className="text-xs text-gray-400 mt-1">İsteğe bağlı - Topluluğun kurallarını satır satır yazın</p>
             </div>
 
             {/* Info Box */}

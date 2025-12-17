@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
+import { getImageUrl } from '../utils/imageHelper';
 
 function PostDetail() {
   const { id } = useParams();
@@ -32,6 +33,12 @@ function PostDetail() {
   const [editCommentContent, setEditCommentContent] = useState('');
   const [submittingEditComment, setSubmittingEditComment] = useState(false);
 
+  // User profile edit states
+  const [showUserEditModal, setShowUserEditModal] = useState(false);
+  const [userBio, setUserBio] = useState('');
+  const [submittingUserEdit, setSubmittingUserEdit] = useState(false);
+  const [authorData, setAuthorData] = useState(null);
+
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
   useEffect(() => {
@@ -43,9 +50,18 @@ function PostDetail() {
       const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
       setCurrentUser(user);
 
-      // Check if current user is the owner
-      if (user && user.id && post.userId && String(user._id) === String(post.userId)) {
-        setIsOwner(true);
+      // Check if current user is the owner - test both id and _id properties
+      if (user && post.userId) {
+        const userId = user._id || user.id;
+        const postOwnerId = post.userId;
+        console.log('Owner check:', { userId, postOwnerId, isEqual: String(userId) === String(postOwnerId) });
+        if (String(userId) === String(postOwnerId)) {
+          setIsOwner(true);
+        } else {
+          setIsOwner(false);
+        }
+      } else {
+        setIsOwner(false);
       }
 
       // Set edit form values when post loads
@@ -57,6 +73,11 @@ function PostDetail() {
       const previousVote = userVotes[post._id || post.id];
       if (previousVote) {
         setVoteStatus(previousVote);
+      }
+
+      // Fetch author data
+      if (post.author) {
+        fetchAuthorData(post.author);
       }
 
       // Fetch comments
@@ -89,6 +110,23 @@ function PostDetail() {
       setComments([]);
     } finally {
       setLoadingComments(false);
+    }
+  };
+
+  const fetchAuthorData = async (authorUsername) => {
+    try {
+      // Try to fetch user by username or get from API
+      const response = await axios.get(`${API_URL}/users/username/${authorUsername}`);
+      setAuthorData(response.data);
+      setUserBio(response.data.bio || '');
+    } catch (err) {
+      console.error('Yazar bilgisi yüklenirken hata:', err);
+      // Set basic author data from post if fetch fails
+      setAuthorData({
+        username: authorUsername,
+        bio: '',
+        createdAt: new Date().toISOString()
+      });
     }
   };
 
@@ -289,6 +327,35 @@ function PostDetail() {
     }
   };
 
+  const handleUpdateUserProfile = async (e) => {
+    e.preventDefault();
+    try {
+      setSubmittingUserEdit(true);
+      const token = localStorage.getItem('accessToken');
+      
+      await axios.put(
+        `${API_URL}/users/profile`,
+        { bio: userBio },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Update localStorage
+      const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      currentUser.bio = userBio;
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+
+      // Update author data
+      setAuthorData({ ...authorData, bio: userBio });
+      setShowUserEditModal(false);
+      alert('Profil başarıyla güncellendi!');
+    } catch (err) {
+      console.error('Profil güncellenirken hata:', err);
+      alert('Profil güncellenirken hata oluştu');
+    } finally {
+      setSubmittingUserEdit(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900">
@@ -376,9 +443,9 @@ function PostDetail() {
             {/* Content Section */}
             <div className="flex-1 p-8 overflow-hidden">
               {/* Header */}
-              <div className="flex items-start justify-between mb-4 gap-2 min-w-0">
-                <div className="min-w-0">
-                  <div className="flex items-center text-sm text-gray-500 mb-2 gap-1 overflow-hidden">
+              <div className="flex items-start justify-between mb-6 gap-4 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center text-sm text-gray-500 mb-3 gap-1 overflow-hidden">
                     <span className="font-bold text-orange-400 hover:text-orange-300 cursor-pointer transition truncate">
                       r/{post.subreddit}
                     </span>
@@ -388,17 +455,19 @@ function PostDetail() {
                       u/{post.author}
                     </span>
                   </div>
+                  {/* Title */}
+                  <h1 className="text-3xl font-bold text-gray-100 break-words overflow-hidden" style={{ wordBreak: 'break-word' }}>{post.title}</h1>
                 </div>
 
-                {/* Edit/Delete Buttons */}
+                {/* Edit/Delete Buttons for Post Owner */}
                 {isOwner && (
-                  <div className="flex items-center space-x-2 flex-shrink-0">
+                  <div className="flex items-center space-x-2 flex-shrink-0 mt-1">
                     <button
                       onClick={() => setShowEditPostModal(true)}
-                      className="p-2 text-gray-400 hover:text-orange-400 hover:bg-gray-700/50 rounded-lg transition"
-                      title="Düzenle"
+                      className="flex items-center space-x-2 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition font-medium text-sm whitespace-nowrap"
+                      title="Gönderiyi Düzenle"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -406,14 +475,15 @@ function PostDetail() {
                           d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                         />
                       </svg>
+                      <span>Düzenle</span>
                     </button>
                     <button
                       onClick={handleDelete}
                       disabled={isDeleting}
-                      className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-700/50 rounded-lg transition disabled:opacity-50"
-                      title="Sil"
+                      className="flex items-center space-x-2 px-3 py-2 bg-red-500 hover:bg-red-600 disabled:bg-red-500/50 text-white rounded-lg transition font-medium text-sm disabled:cursor-not-allowed whitespace-nowrap"
+                      title="Gönderiyi Sil"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -421,20 +491,22 @@ function PostDetail() {
                           d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                         />
                       </svg>
+                      <span>{isDeleting ? 'Siliniyor...' : 'Sil'}</span>
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* Title */}
-              <h1 className="text-3xl font-bold text-gray-100 mb-4 break-words overflow-hidden" style={{ wordBreak: 'break-word' }}>{post.title}</h1>
-
               {/* Image if exists */}
               {post.image && (
                 <img
-                  src={post.image}
+                  src={getImageUrl(post.image)}
                   alt={post.title}
-                  className="w-full max-h-96 object-cover rounded-lg mb-6"
+                  className="w-full max-h-96 object-cover rounded-lg mb-4 shadow-lg"
+                  onError={(e) => {
+                    console.error('Resim yüklenemedi:', post.image);
+                    e.target.style.display = 'none';
+                  }}
                 />
               )}
 
@@ -502,6 +574,53 @@ function PostDetail() {
           </div>
         </div>
 
+        {/* Author Profile Card */}
+        {authorData && (
+          <div className="mt-8 bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-100">Gönderi Yazarı</h3>
+              {currentUser && currentUser.username === post.author && (
+                <button
+                  onClick={() => {
+                    setUserBio(authorData.bio || '');
+                    setShowUserEditModal(true);
+                  }}
+                  className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition"
+                >
+                  Profili Düzenle
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-400 to-pink-600 flex items-center justify-center text-2xl font-bold text-white">
+                {post.author?.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1">
+                <h4 className="text-lg font-semibold text-gray-100">{post.author}</h4>
+                <p className="text-sm text-gray-400">u/{post.author}</p>
+                {authorData.createdAt && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Katılma: {new Date(authorData.createdAt).toLocaleDateString('tr-TR')}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {authorData.bio && (
+              <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700/50">
+                <p className="text-gray-300 text-sm">{authorData.bio}</p>
+              </div>
+            )}
+
+            {!authorData.bio && currentUser && currentUser.username === post.author && (
+              <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-700/50">
+                <p className="text-gray-400 text-sm italic">Bio eklenmemiş. Profili düzenle butonunu tıklayarak biyografi ekle.</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Comments Section */}
         <div className="mt-8">
           <h2 className="text-2xl font-bold text-gray-100 mb-6">Yorumlar</h2>
@@ -558,8 +677,8 @@ function PostDetail() {
             <div className="space-y-4">
               {comments.map((comment) => (
                 <div key={comment._id} className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4 hover:border-gray-600/50 transition">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
+                  <div className="flex justify-between items-start mb-3 gap-2">
+                    <div className="flex-1">
                       <h3 className="text-lg font-semibold text-gray-100">{comment.title}</h3>
                       <p className="text-sm text-gray-500">
                         <span className="text-orange-400 hover:text-orange-300 cursor-pointer transition">
@@ -568,38 +687,40 @@ function PostDetail() {
                         {' '} • {new Date(comment.createdAt).toLocaleDateString('tr-TR')}
                       </p>
                     </div>
-                    {currentUser && String(currentUser._id) === String(comment.userId?._id) && (
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => startEditComment(comment)}
-                          className="p-2 text-gray-400 hover:text-orange-400 hover:bg-gray-700/50 rounded-lg transition"
-                          title="Düzenle"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                            />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteComment(comment._id, comment.userId?._id)}
-                          className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-700/50 rounded-lg transition"
-                          title="Sil"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex items-center space-x-2 flex-shrink-0">
+                      {currentUser && String(currentUser._id) === String(comment.userId?._id) && (
+                        <>
+                          <button
+                            onClick={() => startEditComment(comment)}
+                            className="p-2 text-gray-400 hover:text-orange-400 hover:bg-gray-700/50 rounded-lg transition"
+                            title="Düzenle"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteComment(comment._id, comment.userId?._id)}
+                            className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-700/50 rounded-lg transition"
+                            title="Sil"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                   {editingCommentId === comment._id ? (
                     <div className="bg-gray-900/50 border border-gray-600 rounded-lg p-4 mb-3">
@@ -638,7 +759,20 @@ function PostDetail() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-gray-300 whitespace-pre-wrap">{comment.context}</p>
+                    <>
+                      <p className="text-gray-300 whitespace-pre-wrap mb-3">{comment.content || comment.context}</p>
+                      {comment.image && (
+                        <img 
+                          src={getImageUrl(comment.image)}
+                          alt="Yorum resmi" 
+                          className="max-h-96 w-full object-cover rounded-lg shadow-md hover:shadow-lg transition-shadow"
+                          onError={(e) => {
+                            console.error('Yorum resmi yüklenemedi:', comment.image);
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      )}
+                    </>
                   )}
                 </div>
               ))}
@@ -711,6 +845,74 @@ function PostDetail() {
                 </div>
               </form>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Profile Edit Modal */}
+      {showUserEditModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowUserEditModal(false)}>
+          <div className="bg-gray-900 rounded-2xl border border-gray-700 max-w-lg w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-700">
+              <h2 className="text-2xl font-bold text-gray-100">Profil Düzenle</h2>
+              <button
+                onClick={() => setShowUserEditModal(false)}
+                className="text-gray-400 hover:text-gray-200 transition"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <form onSubmit={handleUpdateUserProfile} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-200 mb-2">
+                  Kullanıcı Adı
+                </label>
+                <input
+                  type="text"
+                  value={post.author}
+                  disabled
+                  className="w-full px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-gray-400 cursor-not-allowed"
+                />
+                <p className="text-xs text-gray-500 mt-1">Kullanıcı adı değiştirilemez</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-200 mb-2">
+                  Biyografi (Bio)
+                </label>
+                <textarea
+                  value={userBio}
+                  onChange={(e) => setUserBio(e.target.value)}
+                  placeholder="Kendiniz hakkında kısa bir açıklama yazın..."
+                  maxLength={150}
+                  rows="4"
+                  className="w-full px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-gray-100 placeholder-gray-600 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition resize-none"
+                />
+                <p className="text-xs text-gray-500 mt-1">{userBio.length} / 150</p>
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-700">
+                <button
+                  type="button"
+                  onClick={() => setShowUserEditModal(false)}
+                  className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition"
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingUserEdit}
+                  className="px-6 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-orange-500/50 text-white rounded-lg transition disabled:cursor-not-allowed"
+                >
+                  {submittingUserEdit ? 'Kaydediliyor...' : 'Profili Kaydet'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

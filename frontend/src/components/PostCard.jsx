@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstance from '../api/axiosInstance';
+import { getImageUrl } from '../utils/imageHelper';
 
 function PostCard({ post }) {
   const navigate = useNavigate();
@@ -9,11 +10,31 @@ function PostCard({ post }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
+  const [loadingVoteStatus, setLoadingVoteStatus] = useState(false);
   
   // Comments modal states
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [comments, setComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
+
+  // Memoize post ID to prevent infinite loops
+  const postId = useMemo(() => post._id || post.id, [post._id, post.id]);
+
+  // Fetch user vote status from backend
+  const fetchUserVoteStatus = useCallback(async (userId) => {
+    if (!userId) return;
+    try {
+      setLoadingVoteStatus(true);
+      const response = await axiosInstance.get(`/votes/${postId}/user-vote`);
+      setVoteStatus(response.data.voteStatus);
+      setVotes(response.data.totalVotes);
+    } catch (err) {
+      // If error, just set to null - user might not be logged in
+      setVoteStatus(null);
+    } finally {
+      setLoadingVoteStatus(false);
+    }
+  }, [postId]);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
@@ -24,81 +45,66 @@ function PostCard({ post }) {
       setIsOwner(false);
     }
 
-    const userVotes = JSON.parse(localStorage.getItem('userVotes') || '{}');
-    const previousVote = userVotes[post._id || post.id];
-    if (previousVote) {
-      setVoteStatus(previousVote);
+    // Fetch user's vote status from backend
+    if (user && user.id) {
+      fetchUserVoteStatus(user.id);
+    } else {
+      setVoteStatus(null);
     }
-  }, [post]);
+  }, [postId, fetchUserVoteStatus]);
 
   const handleVote = async (type) => {
+    if (!currentUser) {
+      alert('Oy vermek için lütfen giriş yapın');
+      return;
+    }
+
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      let newVotes = votes;
       let newStatus = voteStatus;
 
-      // Oylama mantığı
+      // Determine the vote type to send
       if (voteStatus === type) {
-        // Aynı tuşa basılırsa oyu kaldır
-        newVotes = post.votes;
+        // Same vote clicked - remove vote
         newStatus = null;
-      } else if (voteStatus === null) {
-        // İlk oy
-        newVotes = type === 'up' ? votes + 1 : votes - 1;
-        newStatus = type;
       } else {
-        // Oydan değiştir (2 puan değişim)
-        newVotes = type === 'up' ? votes + 2 : votes - 2;
+        // New vote or changing vote
         newStatus = type;
       }
 
       // Optimistic update
-      setVotes(newVotes);
       setVoteStatus(newStatus);
 
       // API'ye gönder
-      await axios.put(`${apiUrl}/votes/${post._id || post.id}`, {
-        votes: newVotes,
+      const response = await axiosInstance.put(`/votes/${postId}`, {
+        voteType: newStatus
       });
 
-      // Oy bilgisini localStorage'a kaydet
-      const userVotes = JSON.parse(localStorage.getItem('userVotes') || '{}');
-      if (newStatus === null) {
-        delete userVotes[post._id || post.id];
-      } else {
-        userVotes[post._id || post.id] = newStatus;
+      // API'den gelen sonucu kullan
+      if (response.data) {
+        setVotes(response.data.votes);
+        setVoteStatus(response.data.userVoteStatus);
       }
-      localStorage.setItem('userVotes', JSON.stringify(userVotes));
 
     } catch (err) {
       console.error('Oy verilirken hata oluştu:', err);
-      // Hata durumunda önceki duruma dön
-      setVotes(votes);
-      setVoteStatus(voteStatus);
-      
-      // 401 hatası ise (giriş yapılmamış) - axiosInstance redirect edecek
-      if (err.response?.status === 401) {
-        return;
+      // Hata durumunda yeniden yükle
+      if (currentUser && currentUser.id) {
+        fetchUserVoteStatus(currentUser.id);
       }
-      
       alert('Oy verilirken hata oluştu');
     }
   };
 
   const handleEdit = () => {
-    navigate(`/edit-post/${post._id || post.id}`);
+    navigate(`/edit-post/${postId}`);
   };
 
   const handleDelete = async () => {
     if (window.confirm('Bu gönderiyi silmek istediğinizden emin misiniz?')) {
       try {
         setIsDeleting(true);
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
         
-        await axios.delete(`${apiUrl}/posts/${post._id || post.id}`, {
-          data: { userId: currentUser.id }
-        });
+        await axiosInstance.delete(`/posts/${postId}`);
         window.location.reload();
       } catch (err) {
         console.error('Gönderi silinirken hata oluştu:', err);
@@ -109,11 +115,10 @@ function PostCard({ post }) {
     }
   };
 
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     try {
       setLoadingComments(true);
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      const response = await axios.get(`${apiUrl}/posts/${post._id || post.id}/comments`);
+      const response = await axiosInstance.get(`/posts/${postId}/comments`);
       setComments(response.data || []);
     } catch (err) {
       console.error('Yorumlar yüklenirken hata:', err);
@@ -121,7 +126,7 @@ function PostCard({ post }) {
     } finally {
       setLoadingComments(false);
     }
-  };
+  }, [postId]);
 
   const handleShowComments = (e) => {
     e.stopPropagation();
@@ -217,9 +222,17 @@ function PostCard({ post }) {
           {/* Image if exists */}
           {post.image && (
             <img
-              src={post.image}
+              src={getImageUrl(post.image)}
               alt={post.title}
-              className="max-h-96 w-auto rounded mb-2 cursor-pointer"
+              className="max-h-96 w-full object-cover rounded-lg mb-3 shadow-md hover:shadow-lg transition-shadow"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/post/${post._id || post.id}`);
+              }}
+              onError={(e) => {
+                console.error('Resim yüklenemedi:', post.image);
+                e.target.style.display = 'none';
+              }}
             />
           )}
 
@@ -277,7 +290,7 @@ function PostCard({ post }) {
                   {comments.slice(0, 5).map((comment) => (
                     <div key={comment._id} className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50 hover:border-gray-600/50 transition">
                       <div className="flex justify-between items-start mb-2">
-                        <div>
+                        <div className="flex-1">
                           <h4 className="font-semibold text-gray-100">{comment.title}</h4>
                           <p className="text-xs text-gray-500 mt-1">
                             <span className="text-orange-400">u/{comment.userId?.username || 'Anonim'}</span>
@@ -285,7 +298,18 @@ function PostCard({ post }) {
                           </p>
                         </div>
                       </div>
-                      <p className="text-sm text-gray-300 whitespace-pre-wrap">{comment.context}</p>
+                      <p className="text-sm text-gray-300 whitespace-pre-wrap mb-3">{comment.content}</p>
+                      {comment.image && (
+                        <img 
+                          src={getImageUrl(comment.image)}
+                          alt="Yorum resmi" 
+                          className="max-h-64 w-full object-cover rounded-lg mb-3 shadow-md hover:shadow-lg transition-shadow"
+                          onError={(e) => {
+                            console.error('Yorum resmi yüklenemedi:', comment.image);
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      )}
                     </div>
                   ))}
                   {comments.length > 5 && (

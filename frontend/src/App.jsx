@@ -11,6 +11,7 @@ import CreateCommunity from './pages/CreateCommunity';
 import UpdatePost from './pages/UpdatePost';
 import Profile from './pages/Profile';
 import Communities from './pages/Communities';
+import CommunityDetail from './pages/CommunityDetail';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import PostDetail from './pages/PostDetail';
@@ -151,6 +152,7 @@ function App() {
       <Route path="/post/:id" element={<ProtectedRoute><PostDetail /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/communities" element={<ProtectedRoute><Communities /></ProtectedRoute>} />
+      <Route path="/communities/:communityId" element={<CommunityDetail />} />
     </Routes>
   );
 }

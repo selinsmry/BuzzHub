@@ -1,38 +1,49 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import Navbar from '../components/Navbar';
 import CommunityCard from '../components/CommunityCard';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import axiosInstance from '../api/axiosInstance';
 
 function Communities() {
   const [communities, setCommunities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [userCommunities, setUserCommunities] = useState([]);
 
   useEffect(() => {
     fetchCommunities();
+    fetchUserCommunities();
   }, []);
 
   const fetchCommunities = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`${API_URL}/communities`);
-      setCommunities(response.data || []);
+      const response = await axiosInstance.get('/communities');
+      console.log('Communities response:', response.data);
+      const communitiesData = response.data.communities || response.data || [];
+      console.log('Communities data to set:', communitiesData);
+      setCommunities(communitiesData);
     } catch (err) {
       console.error('Topluluklar yüklenirken hata:', err);
-      setError('Topluluklar yüklenemedi');
-      setCommunities([
-        { id: 1, name: 'programlama', members: 15000 },
-        { id: 2, name: 'teknoloji', members: 20000 },
-        { id: 3, name: 'oyun', members: 18000 },
-        { id: 4, name: 'spor', members: 12000 },
-        { id: 5, name: 'müzik', members: 8000 },
-      ]);
+      console.error('Error details:', err.response?.data || err.message);
+      setError('Topluluklar yüklenemedi - ' + (err.response?.data?.error || err.message));
+      setCommunities([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserCommunities = async () => {
+    try {
+      const response = await axiosInstance.get('/auth/user-communities');
+      console.log('User communities response:', response.data);
+      const ids = response.data.communities?.map(c => c._id) || [];
+      console.log('User community IDs:', ids);
+      setUserCommunities(ids);
+    } catch (err) {
+      console.error('Kullanıcı toplulukları yüklenirken hata:', err);
+      console.error('Error details:', err.response?.data || err.message);
     }
   };
 
@@ -86,7 +97,12 @@ function Communities() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCommunities.length > 0 ? (
               filteredCommunities.map((community) => (
-                <CommunityCard key={community.id} community={community} />
+                <CommunityCard 
+                  key={community._id} 
+                  community={community} 
+                  isJoined={userCommunities.includes(community._id)}
+                  onUpdate={fetchUserCommunities}
+                />
               ))
             ) : (
               <div className="col-span-full text-center py-12 text-gray-400">

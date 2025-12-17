@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import axiosInstance from '../api/axiosInstance';
+import { validation, validateForm, sanitizeInput } from '../utils/validation';
+import { handleApiError } from '../utils/errorHandler';
 
 function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [formData, setFormData] = useState({ username: '', email: '', role: 'user' });
+  const [formErrors, setFormErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -19,19 +22,19 @@ function AdminUsers() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/users`);
+      setError('');
+      const response = await axiosInstance.get('/users');
       const usersData = (response.data || []).map((user, idx) => ({
         ...user,
-        status: user.status || 'active',
-        karma: user.karma || 0,
+        status: user.is_suspended ? 'suspended' : 'active',
+        karma: user.karma_points || 0,
       }));
       setUsers(usersData);
+      console.log('[ADMIN] Fetched users:', usersData);
     } catch (err) {
-      console.error('Kullanıcılar yüklenirken hata:', err);
-      setUsers([
-        { _id: 1, username: 'techguru', email: 'tech@example.com', role: 'user', status: 'active', karma: 150 },
-        { _id: 2, username: 'admin', email: 'admin@example.com', role: 'admin', status: 'active', karma: 500 },
-      ]);
+      const errorMessage = handleApiError(err);
+      setError(errorMessage);
+      console.error('[ADMIN] Error fetching users:', err);
     } finally {
       setLoading(false);
     }
@@ -40,25 +43,48 @@ function AdminUsers() {
   const handleDelete = async (userId) => {
     if (!window.confirm('Bu kullanıcıyı silmek istediğinize emin misiniz?')) return;
     try {
-      await axios.delete(`${API_URL}/users/${userId}`);
+      await axiosInstance.delete(`/users/${userId}`);
       setUsers(users.filter(u => u._id !== userId));
-      alert('Kullanıcı başarıyla silindi');
+      alert('✅ Kullanıcı başarıyla silindi');
     } catch (err) {
-      console.error('Silme hatası:', err);
-      alert('Kullanıcı silinirken hata oluştu');
+      const errorMessage = handleApiError(err);
+      console.error('[ADMIN] Error deleting user:', err);
+      alert(`❌ Hata: ${errorMessage}`);
     }
   };
 
   const handleUpdateUser = async (userId) => {
+    setFormErrors({});
+
+    const validationRules = {
+      username: validation.username,
+      email: validation.email
+    };
+
+    const validationErrors = validateForm(formData, validationRules);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setFormErrors(validationErrors);
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      await axios.put(`${API_URL}/users/${userId}`, formData);
+      await axiosInstance.put(`/users/${userId}`, {
+        username: sanitizeInput(formData.username),
+        email: sanitizeInput(formData.email),
+        role: formData.role
+      });
       setUsers(users.map(u => u._id === userId ? { ...u, ...formData } : u));
       setShowModal(false);
       setEditingUser(null);
-      alert('Kullanıcı başarıyla güncellendi');
+      alert('✅ Kullanıcı başarıyla güncellendi');
     } catch (err) {
-      console.error('Güncelleme hatası:', err);
-      alert('Güncelleme sırasında hata oluştu');
+      const errorMessage = handleApiError(err);
+      console.error('[ADMIN] Error updating user:', err);
+      alert(`❌ Hata: ${errorMessage}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -119,16 +145,21 @@ function AdminUsers() {
       {showModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 rounded-xl">
           <div className="bg-gray-800 border border-gray-700/50 rounded-2xl p-8 max-w-md w-full mx-4">
-            <h2 className="text-2xl font-bold text-white mb-6">Edit User</h2>
+            <h2 className="text-2xl font-bold text-white mb-6">Kullanıcıyı Düzenle</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Kullanıcı Adı</label>
                 <input
                   type="text"
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-orange-500/50"
+                  className={`w-full bg-gray-900/50 border rounded-xl px-4 py-2 text-white focus:outline-none focus:border-orange-500/50 ${
+                    formErrors.username ? 'border-red-500/50' : 'border-gray-700/50'
+                  }`}
                 />
+                {formErrors.username && (
+                  <p className="text-red-400 text-sm mt-1">⚠️ {formErrors.username}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
@@ -136,8 +167,13 @@ function AdminUsers() {
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-orange-500/50"
+                  className={`w-full bg-gray-900/50 border rounded-xl px-4 py-2 text-white focus:outline-none focus:border-orange-500/50 ${
+                    formErrors.email ? 'border-red-500/50' : 'border-gray-700/50'
+                  }`}
                 />
+                {formErrors.email && (
+                  <p className="text-red-400 text-sm mt-1">⚠️ {formErrors.email}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Role</label>
@@ -154,18 +190,20 @@ function AdminUsers() {
               <div className="flex space-x-3 pt-4">
                 <button
                   onClick={() => handleUpdateUser(editingUser._id)}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-500 to-pink-600 text-white rounded-xl hover:from-orange-600 hover:to-pink-700 transition-all disabled:opacity-50"
                 >
-                  Save
+                  {isSubmitting ? 'Kaydediliyor...' : 'Kaydet'}
                 </button>
                 <button
                   onClick={() => {
                     setShowModal(false);
                     setEditingUser(null);
                   }}
-                  className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600 transition-colors"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600 transition-colors disabled:opacity-50"
                 >
-                  Cancel
+                  İptal
                 </button>
               </div>
             </div>

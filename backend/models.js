@@ -11,17 +11,31 @@ const postSchema = new mongoose.Schema(
     comments: { type: Number, default: 0 },
     image: String,
     createdAt: { type: Date, default: Date.now },
-    communityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Community', required: false }
+    communities: { type: mongoose.Schema.Types.ObjectId, ref: 'Community', required: false },
+    status: { type: String, enum: ['published', 'flagged', 'deleted'], default: 'published' },
+    is_locked: { type: Boolean, default: false },
+    is_pinned: { type: Boolean, default: false },
+    reported_count: { type: Number, default: 0 },
+    // Track individual votes per user
+    userVotes: [{
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      voteType: { type: String, enum: ['up', 'down'] }
+    }]
   },
   { timestamps: true }
 );
 
-// Community Schema
+// Community Schema 
 const communitySchema = new mongoose.Schema(
   {
     name: { type: String, required: true, unique: true },
-    members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // membership list
+    members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     description: String,
+    owner_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
+    rules: [String],
+    is_private: { type: Boolean, default: false },
+    member_count: { type: Number, default: 0 },
+    icon: String
   },
   { timestamps: true }
 );
@@ -29,10 +43,17 @@ const communitySchema = new mongoose.Schema(
 // User Schema
 const userSchema = new mongoose.Schema(
   {
-    username: { type: String, required: true, unique: true },
-    email: { type: String, required: true, unique: true },
+    username: { type: String, required: true, unique: true, index: true },
+    email: { type: String, required: true, unique: true, index: true },
     password: { type: String, required: true },
-    role: { type: String, enum: ['user', 'admin', ], default: 'user' },
+    role: { type: String, enum: ['user', 'admin'], default: 'user' },
+    profile_picture: String,
+    bio: String,
+    karma_points: { type: Number, default: 0 },
+    is_suspended: { type: Boolean, default: false },
+    suspension_reason: String,
+    suspension_until: Date,
+    communities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Community' }],
     createdAt: { type: Date, default: Date.now },
   },
   { timestamps: true }
@@ -46,6 +67,7 @@ const commentSchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     postId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post', required: true },
     votes: { type: Number, default: 0 },
+    image: String,
     createdAt: { type: Date, default: Date.now },
   },
   { timestamps: true }

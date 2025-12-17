@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
+import Navbar from '../components/Navbar';
 
 function UpdatePost() {
   const navigate = useNavigate();
@@ -35,10 +36,12 @@ function UpdatePost() {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       const response = await axios.get(`${apiUrl}/communities`);
-      const communitiesList = response.data || [];
+      const communitiesList = response.data.communities || response.data || [];
+      console.log('Fetched communities:', communitiesList);
       setCommunities(communitiesList);
     } catch (err) {
       console.error('Topluluklar yüklenirken hata:', err);
+      console.error('Error details:', err.response?.data || err.message);
       // Fallback olarak varsayılan toplulukları kullan
       const defaultCommunities = [
         { name: 'programlama' },
@@ -161,8 +164,9 @@ function UpdatePost() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 pt-20">
-      <div className="max-w-2xl mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
+      <Navbar />
+      <div className="max-w-2xl mx-auto px-4 pt-20">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-100 mb-2">Gönderiyi Düzenle</h1>
           <p className="text-gray-400">Gönderi bilgilerinizi güncelleyin</p>

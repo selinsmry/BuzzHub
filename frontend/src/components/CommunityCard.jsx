@@ -1,10 +1,38 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axiosInstance from '../api/axiosInstance';
 
-function CommunityCard({ community }) {
-  const [isJoined, setIsJoined] = useState(community.isJoined || false);
+function CommunityCard({ community, isJoined: initialJoined = false, onUpdate = () => {} }) {
+  const navigate = useNavigate();
+  const [isJoined, setIsJoined] = useState(initialJoined);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const handleJoinToggle = () => {
-    setIsJoined(!isJoined);
+  const handleJoinToggle = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('Join/Leave clicked for community:', community._id);
+
+      if (isJoined) {
+        console.log('Leaving community...');
+        const response = await axiosInstance.post(`/auth/community/${community._id}/leave`);
+        console.log('Leave response:', response.data);
+        setIsJoined(false);
+      } else {
+        console.log('Joining community...');
+        const response = await axiosInstance.post(`/auth/community/${community._id}/join`);
+        console.log('Join response:', response.data);
+        setIsJoined(true);
+      }
+      onUpdate();
+    } catch (err) {
+      console.error('İşlem başarısız:', err);
+      console.error('Error response:', err.response?.data);
+      setError(err.response?.data?.error || 'Bir hata oluştu');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatMembers = (num) => {
@@ -32,7 +60,7 @@ function CommunityCard({ community }) {
   const iconEmoji = ['🚀', '💬', '🎮', '📚', '🎵', '⚽', '🍕'][hash % 7];
 
   return (
-    <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all hover:border-orange-500/30 group">
+    <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all hover:border-orange-500/30 group cursor-pointer" onClick={() => navigate(`/communities/${community._id}`)}>
       {/* Banner */}
       <div className={`h-24 bg-gradient-to-r ${gradient} opacity-80 group-hover:opacity-100 transition`}></div>
 
@@ -40,11 +68,11 @@ function CommunityCard({ community }) {
       <div className="p-5">
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 flex-1">
             <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-2xl shadow-lg -mt-8 border-4 border-gray-800`}>
               {iconEmoji}
             </div>
-            <div>
+            <div className="flex-1">
               <h3 className="font-bold text-gray-100 group-hover:text-orange-400 transition">
                 {community.name}
               </h3>
@@ -73,15 +101,20 @@ function CommunityCard({ community }) {
 
         {/* Join Button */}
         <button
-          onClick={handleJoinToggle}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleJoinToggle();
+          }}
+          disabled={loading}
           className={`w-full py-2.5 rounded-xl font-bold text-sm transition-all ${
             isJoined
               ? 'bg-gray-700/50 text-gray-300 hover:bg-gray-700 border border-gray-600'
               : 'bg-gradient-to-r from-orange-500 to-pink-600 text-white hover:from-orange-600 hover:to-pink-700 shadow-lg shadow-orange-500/20'
-          }`}
+          } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          {isJoined ? '✓ Üyesin' : 'Katıl'}
+          {loading ? '...' : (isJoined ? '✓ Üyesin' : 'Katıl')}
         </button>
+        {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
       </div>
     </div>
   );

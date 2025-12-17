@@ -1,4 +1,8 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
 function AdminSidebar({ activeTab, setActiveTab, setSidebarOpen, onLogout }) {
+  const navigate = useNavigate();
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard'},
     { id: 'users', label: 'Users' },
@@ -42,6 +46,12 @@ function AdminSidebar({ activeTab, setActiveTab, setSidebarOpen, onLogout }) {
 
       {/* Additional Actions */}
       <div className="space-y-2">
+        <button 
+          onClick={() => navigate('/')}
+          className="w-full flex items-center space-x-3 px-4 py-3 text-gray-300 hover:bg-blue-500/10 hover:text-blue-400 rounded-xl transition-all duration-200">
+          <span className="text-xl">🏠</span>
+          <span className="font-medium">Home</span>
+        </button>
         <button className="w-full flex items-center space-x-3 px-4 py-3 text-gray-300 hover:bg-gray-800/50 hover:text-white rounded-xl transition-all duration-200">
           <span className="text-xl"></span>
           <span className="font-medium">Mobile View</span>

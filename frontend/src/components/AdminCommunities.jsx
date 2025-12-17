@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import axiosInstance from '../api/axiosInstance';
+import { validation, validateForm, sanitizeInput } from '../utils/validation';
+import { handleApiError } from '../utils/errorHandler';
 
 function AdminCommunities() {
   const [communities, setCommunities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingCommunity, setEditingCommunity] = useState(null);
   const [formData, setFormData] = useState({ name: '', description: '' });
+  const [formErrors, setFormErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchCommunities();
@@ -18,67 +21,93 @@ function AdminCommunities() {
   const fetchCommunities = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/communities`);
-      const communitiesData = (response.data || []).map((community, idx) => ({
+      setError('');
+      console.log('Fetching communities from admin...');
+      const response = await axiosInstance.get('/communities');
+      console.log('Communities response:', response.data);
+      
+      const communitiesArray = response.data.communities || response.data || [];
+      console.log('Communities array:', communitiesArray);
+      
+      const communitiesData = communitiesArray.map((community) => ({
         ...community,
-        members: community.members || Math.floor(Math.random() * 10000) + 100,
-        posts: community.posts || Math.floor(Math.random() * 500) + 10,
-        status: community.status || 'active',
+        members: community.member_count || 0,
+        posts: community.posts || 0,
+        status: community.is_private ? 'private' : 'active',
       }));
+      
+      console.log('Processed communities:', communitiesData);
       setCommunities(communitiesData);
     } catch (err) {
+      const errorMessage = handleApiError(err);
+      setError(errorMessage);
       console.error('Topluluklar yüklenirken hata:', err);
-      setCommunities([
-        { _id: 1, name: 'teknoloji', description: 'Teknoloji haberleri', members: 8934, posts: 234, status: 'active' },
-        { _id: 2, name: 'programlama', description: 'Programlama tartışmaları', members: 6543, posts: 156, status: 'active' },
-      ]);
     } finally {
       setLoading(false);
     }
   };
 
   const handleCreateOrUpdate = async () => {
-    if (!formData.name.trim()) {
-      alert('Topluluk adı gereklidir');
+    setFormErrors({});
+
+    // Validation
+    const validationRules = {
+      name: validation.communityName,
+      description: validation.communityDescription
+    };
+
+    const validationErrors = validateForm(formData, validationRules);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setFormErrors(validationErrors);
       return;
     }
 
+    setIsSubmitting(true);
+
     try {
+      const cleanData = {
+        name: sanitizeInput(formData.name),
+        description: sanitizeInput(formData.description)
+      };
+
       if (editingCommunity) {
-        // Update
-        await axios.put(`${API_URL}/communities/${editingCommunity._id}`, formData);
-        setCommunities(communities.map(c => c._id === editingCommunity._id ? { ...c, ...formData } : c));
-        alert('Topluluk başarıyla güncellendi');
+        await axiosInstance.put(`/communities/${editingCommunity._id}`, cleanData);
+        setCommunities(communities.map(c => c._id === editingCommunity._id ? { ...c, ...cleanData } : c));
+        alert('✅ Topluluk başarıyla güncellendi');
       } else {
-        // Create
-        const response = await axios.post(`${API_URL}/communities`, formData);
+        const response = await axiosInstance.post(`/communities`, cleanData);
         const newCommunity = {
-          ...response.data,
-          members: Math.floor(Math.random() * 10000) + 100,
-          posts: Math.floor(Math.random() * 500) + 10,
+          ...response.data.community,
+          members: 0,
+          posts: 0,
           status: 'active',
         };
         setCommunities([...communities, newCommunity]);
-        alert('Topluluk başarıyla oluşturuldu');
+        alert('✅ Topluluk başarıyla oluşturuldu');
       }
       setShowModal(false);
       setEditingCommunity(null);
       setFormData({ name: '', description: '' });
     } catch (err) {
+      const errorMessage = handleApiError(err);
       console.error('Hata:', err);
-      alert('İşlem sırasında hata oluştu');
+      alert(`❌ Hata: ${errorMessage}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (communityId) => {
     if (!window.confirm('Bu topluluğu silmek istediğinize emin misiniz?')) return;
     try {
-      await axios.delete(`${API_URL}/communities/${communityId}`);
+      await axiosInstance.delete(`/communities/${communityId}`);
       setCommunities(communities.filter(c => c._id !== communityId));
-      alert('Topluluk başarıyla silindi');
+      alert('✅ Topluluk başarıyla silindi');
     } catch (err) {
+      const errorMessage = handleApiError(err);
       console.error('Silme hatası:', err);
-      alert('Topluluk silinirken hata oluştu');
+      alert(`❌ Hata: ${errorMessage}`);
     }
   };
 
@@ -122,43 +151,56 @@ function AdminCommunities() {
       {showModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 rounded-xl">
           <div className="bg-gray-800 border border-gray-700/50 rounded-2xl p-8 max-w-md w-full mx-4">
-            <h2 className="text-2xl font-bold text-white mb-6">{editingCommunity ? 'Edit Community' : 'Create Community'}</h2>
+            <h2 className="text-2xl font-bold text-white mb-6">{editingCommunity ? 'Topluluğu Düzenle' : 'Topluluk Oluştur'}</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Community Name</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Topluluk Adı</label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-orange-500/50"
-                  placeholder="e.g., teknoloji"
+                  className={`w-full bg-gray-900/50 border rounded-xl px-4 py-2 text-white focus:outline-none focus:border-orange-500/50 ${
+                    formErrors.name ? 'border-red-500/50' : 'border-gray-700/50'
+                  }`}
+                  placeholder="örn: teknoloji"
                 />
+                {formErrors.name && (
+                  <p className="text-red-400 text-sm mt-1">⚠️ {formErrors.name}</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Açıklama</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-orange-500/50"
-                  placeholder="Enter community description..."
+                  className={`w-full bg-gray-900/50 border rounded-xl px-4 py-2 text-white focus:outline-none focus:border-orange-500/50 ${
+                    formErrors.description ? 'border-red-500/50' : 'border-gray-700/50'
+                  }`}
+                  placeholder="Topluluk açıklamasını girin..."
                   rows="3"
                 />
+                {formErrors.description && (
+                  <p className="text-red-400 text-sm mt-1">⚠️ {formErrors.description}</p>
+                )}
               </div>
               <div className="flex space-x-3 pt-4">
                 <button
                   onClick={handleCreateOrUpdate}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-500 to-pink-600 text-white rounded-xl hover:from-orange-600 hover:to-pink-700 transition-all disabled:opacity-50"
                 >
-                  {editingCommunity ? 'Update' : 'Create'}
+                  {isSubmitting ? 'İşlem yapılıyor...' : editingCommunity ? 'Güncelle' : 'Oluştur'}
                 </button>
                 <button
                   onClick={() => {
                     setShowModal(false);
                     setEditingCommunity(null);
+                    setFormData({ name: '', description: '' });
                   }}
-                  className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600 transition-colors"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600 transition-colors disabled:opacity-50"
                 >
-                  Cancel
+                  İptal
                 </button>
               </div>
             </div>

@@ -13,7 +13,7 @@ function Sidebar() {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       const response = await axios.get(`${apiUrl}/communities`);
-      const communitiesList = response.data || [];
+      const communitiesList = response.data.communities || [];
       
       // İlk 5 topluluğu al
       const topCommunities = communitiesList.slice(0, 5).map((community, index) => ({

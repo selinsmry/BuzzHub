@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import axiosInstance from '../api/axiosInstance';
 
 function AdminPosts() {
   const [posts, setPosts] = useState([]);
@@ -16,14 +14,14 @@ function AdminPosts() {
   const fetchPosts = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/posts`);
+      const response = await axiosInstance.get('/posts');
       const postsData = (response.data.posts || response.data || []).map(post => ({
         ...post,
         status: post.status || 'published',
       }));
       setPosts(postsData);
     } catch (err) {
-      console.error('Gönderiler yüklenirken hata:', err);
+      console.error('[ADMIN POSTS] Error fetching posts:', err);
       setPosts([]);
     } finally {
       setLoading(false);
@@ -33,13 +31,13 @@ function AdminPosts() {
   const handleDeletePost = async (postId) => {
     if (!window.confirm('Bu gönderiyi silmek istediğinize emin misiniz?')) return;
     try {
-      await axios.delete(`${API_URL}/posts/${postId}`, {
+      await axiosInstance.delete(`/posts/${postId}`, {
         data: { userId: localStorage.getItem('currentUser') ? JSON.parse(localStorage.getItem('currentUser'))._id : null }
       });
       setPosts(posts.filter(p => p._id !== postId));
       alert('Gönderi başarıyla silindi');
     } catch (err) {
-      console.error('Silme hatası:', err);
+      console.error('[ADMIN POSTS] Error deleting post:', err);
       alert('Gönderi silinirken hata oluştu');
     }
   };

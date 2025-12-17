@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import axiosInstance from '../api/axiosInstance';
 
 function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -22,9 +20,9 @@ function AdminDashboard() {
     try {
       setLoading(true);
       const [usersRes, communitiesRes, postsRes] = await Promise.all([
-        axios.get(`${API_URL}/users`),
-        axios.get(`${API_URL}/communities`),
-        axios.get(`${API_URL}/posts`),
+        axiosInstance.get('/users'),
+        axiosInstance.get('/communities'),
+        axiosInstance.get('/posts'),
       ]);
 
       const postsList = postsRes.data.posts || postsRes.data || [];
@@ -37,7 +35,7 @@ function AdminDashboard() {
         systemHealth: 98.5,
       });
     } catch (err) {
-      console.error('Stats yüklenirken hata:', err);
+      console.error('[ADMIN DASHBOARD] Error fetching stats:', err);
       setStats({
         totalUsers: 150,
         activeUsers: 38,

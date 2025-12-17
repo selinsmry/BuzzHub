@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import axiosInstance from '../api/axiosInstance';
 
 function AdminModeration() {
   const [posts, setPosts] = useState([]);
@@ -20,7 +18,7 @@ function AdminModeration() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/posts`);
+      const response = await axiosInstance.get('/posts');
       const postsData = (response.data.posts || response.data || []).slice(0, 5);
       setPosts(postsData);
       
@@ -32,7 +30,7 @@ function AdminModeration() {
         postsRemoved: Math.floor(Math.random() * 15),
       });
     } catch (err) {
-      console.error('Data yüklenirken hata:', err);
+      console.error('[ADMIN MODERATION] Error fetching data:', err);
       setPosts([]);
     } finally {
       setLoading(false);
@@ -42,14 +40,14 @@ function AdminModeration() {
   const handleRemovePost = async (postId) => {
     if (!window.confirm('Bu gönderiyi kaldırmak istediğinize emin misiniz?')) return;
     try {
-      await axios.delete(`${API_URL}/posts/${postId}`, {
+      await axiosInstance.delete(`/posts/${postId}`, {
         data: { userId: localStorage.getItem('currentUser') ? JSON.parse(localStorage.getItem('currentUser'))._id : null }
       });
       setPosts(posts.filter(p => p._id !== postId));
       setStats({ ...stats, postsRemoved: stats.postsRemoved + 1 });
       alert('Gönderi kaldırıldı');
     } catch (err) {
-      console.error('Hata:', err);
+      console.error('[ADMIN MODERATION] Error removing post:', err);
       alert('İşlem sırasında hata oluştu');
     }
   };

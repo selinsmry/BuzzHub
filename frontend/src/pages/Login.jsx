@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
+import { validation, validateForm, sanitizeInput } from '../utils/validation';
+import { handleApiError } from '../utils/errorHandler';
 
 function Login() {
   const navigate = useNavigate();
@@ -8,38 +10,57 @@ function Login() {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setErrors({});
+
+    // Validation
+    const validationRules = {
+      username: validation.username,
+      password: (value) => {
+        if (!value) return "Şifre gereklidir";
+        if (value.length < 6) return "Şifre en az 6 karakter olmalıdır";
+        return null;
+      }
+    };
+
+    const formData = {
+      username: sanitizeInput(username),
+      password: password
+    };
+
+    const validationErrors = validateForm(formData, validationRules);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
 
     setIsSubmitting(true);
 
     try {
-      // Backend'deki JWT login endpoint'ine istek gönder
       const response = await axiosInstance.post(`/auth/login`, {
-        username: username,
+        username: sanitizeInput(username),
         password: password
       });
 
       const { accessToken, refreshToken, user } = response.data;
 
-      // Tokens ve kullanıcı bilgilerini localStorage'e kaydet
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('currentUser', JSON.stringify(user));
 
-      // Admin ise /admin'e, normal user ise /'ye yönlendir
       if (user.role === 'admin') {
         navigate('/admin');
       } else {
         navigate('/');
       }
     } catch (err) {
-      setError(
-        err.response?.data?.error || 
-        'Giriş yapılırken hata oluştu. Lütfen daha sonra deneyiniz.'
-      );
+      const errorMessage = handleApiError(err);
+      setError(errorMessage);
       console.error('Login error:', err);
     } finally {
       setIsSubmitting(false);
@@ -85,8 +106,15 @@ function Login() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Kullanıcı adınız..."
-                className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
+                className={`w-full px-4 py-3 bg-gray-900 border rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all ${
+                  errors.username ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-orange-500'
+                }`}
               />
+              {errors.username && (
+                <p className="text-red-400 text-sm mt-1 flex items-center gap-1">
+                  <span>⚠️</span> {errors.username}
+                </p>
+              )}
             </div>
 
             {/* Password */}
@@ -99,8 +127,15 @@ function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Şifreniz..."
-                className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition-all"
+                className={`w-full px-4 py-3 bg-gray-900 border rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all ${
+                  errors.password ? 'border-red-500 focus:border-red-500' : 'border-gray-700 focus:border-orange-500'
+                }`}
               />
+              {errors.password && (
+                <p className="text-red-400 text-sm mt-1 flex items-center gap-1">
+                  <span>⚠️</span> {errors.password}
+                </p>
+              )}
             </div>
 
             {/* Remember Me */}

@@ -3,12 +3,15 @@ const cors = require("cors");
 const path = require("path");
 const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
+const fs = require("fs");
 require("dotenv").config();
 
 const { Post, Community, User, Comment } = require("./models");
 const authRoutes = require("./routes/authRoutes");
+const communityRoutes = require("./routes/communityRoutes");
 const verifyToken = require("./middleware/verifyToken");
 const verifyAdmin = require("./middleware/verifyAdmin");
+const upload = require("./middleware/uploadMiddleware");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -26,13 +29,23 @@ mongoose
   })
   .catch((err) => console.error("✗ MongoDB bağlantı hatası:", err));
 
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../frontend/dist")));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Auth Routes
 app.use("/api/auth", authRoutes);
+
+// Community Routes
+app.use("/api/communities", communityRoutes);
 
 // ===== DEBUG API =====
 // Tüm postları listele (debug için)
@@ -52,6 +65,22 @@ app.post("/api/debug/reset", async (req, res) => {
     await User.deleteMany({});
     await Community.deleteMany({});
     res.json({ message: "Database temizlendi" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Migration endpoint to initialize userVotes field for existing posts
+app.post("/api/debug/migrate-votes", async (req, res) => {
+  try {
+    const result = await Post.updateMany(
+      { userVotes: { $exists: false } },
+      { $set: { userVotes: [] } }
+    );
+    res.json({ 
+      message: "Oy migration tamamlandı",
+      modifiedCount: result.modifiedCount
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -80,16 +109,99 @@ app.put("/api/votes/:id", verifyToken, async (req, res) => {
       return res.status(401).json({ error: "Giriş yapılmamış kullanıcı" });
     }
 
-    const { votes } = req.body;
-    const post = await Post.findByIdAndUpdate(
-      req.params.id,
-      { votes },
-      { new: true }
-    );
+    const { voteType } = req.body; // 'up', 'down', or null (to remove vote)
+    const postId = req.params.id;
+
+    const post = await Post.findById(postId);
     if (!post) {
       return res.status(404).json({ message: "Post bulunamadı" });
     }
-    res.json(post);
+
+    // Initialize userVotes if it doesn't exist
+    if (!post.userVotes) {
+      post.userVotes = [];
+    }
+
+    // Check if user has already voted
+    const existingVoteIndex = post.userVotes.findIndex(
+      v => v.userId.toString() === userId.toString()
+    );
+
+    let voteChange = 0;
+
+    if (voteType === null) {
+      // Remove vote
+      if (existingVoteIndex !== -1) {
+        const removedVote = post.userVotes[existingVoteIndex];
+        voteChange = removedVote.voteType === 'up' ? -1 : 1;
+        post.userVotes.splice(existingVoteIndex, 1);
+      }
+    } else if (existingVoteIndex !== -1) {
+      // User already voted - change vote
+      const oldVote = post.userVotes[existingVoteIndex];
+      if (oldVote.voteType === voteType) {
+        // Same vote type - remove it
+        voteChange = voteType === 'up' ? -1 : 1;
+        post.userVotes.splice(existingVoteIndex, 1);
+      } else {
+        // Different vote type - change it
+        voteChange = voteType === 'up' ? 2 : -2;
+        post.userVotes[existingVoteIndex].voteType = voteType;
+      }
+    } else {
+      // First vote
+      voteChange = voteType === 'up' ? 1 : -1;
+      post.userVotes.push({
+        userId: userId,
+        voteType: voteType
+      });
+    }
+
+    // Update vote count
+    post.votes += voteChange;
+    await post.save();
+
+    // Calculate current user's vote status
+    const userVoteRecord = post.userVotes.find(
+      v => v.userId.toString() === userId.toString()
+    );
+    const userVoteStatus = userVoteRecord ? userVoteRecord.voteType : null;
+
+    res.json({
+      votes: post.votes,
+      userVoteStatus: userVoteStatus
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET user's vote status for a post
+app.get("/api/votes/:id/user-vote", verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const postId = req.params.id;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: "Post bulunamadı" });
+    }
+
+    // Initialize userVotes if it doesn't exist
+    if (!post.userVotes) {
+      post.userVotes = [];
+      await post.save();
+    }
+
+    // Find if user has voted on this post
+    const userVote = post.userVotes.find(
+      v => v.userId.toString() === userId.toString()
+    );
+
+    res.json({
+      voteStatus: userVote ? userVote.voteType : null,
+      totalVotes: post.votes
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -135,36 +247,61 @@ app.get("/api/posts/:id", async (req, res) => {
 });
 
 // CREATE new post
-app.post("/api/posts", verifyToken, async (req, res) => {
+app.post("/api/posts", verifyToken, upload.single('image'), async (req, res) => {
   try {
     const { title, content, subreddit, author, image, userId } = req.body;
     
     console.log('DEBUG POST /api/posts - Received:', { title, content, subreddit, author, image, userId });
+    console.log('DEBUG POST /api/posts - File:', req.file);
 
     // Validation
     if (!title || !subreddit) {
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
       return res.status(400).json({ message: "Başlık ve topluluk gereklidir" });
     }
 
+    // Get community name
+    let communityName = subreddit;
+    try {
+      // Check if subreddit is a valid MongoDB ObjectId
+      if (subreddit.match(/^[0-9a-fA-F]{24}$/)) {
+        const community = await Community.findById(subreddit);
+        if (community) {
+          communityName = community.name;
+        }
+      }
+    } catch (err) {
+      console.log('Could not fetch community:', err.message);
+      // If community not found, use subreddit as is
+    }
+
+    // Get image URL
+    let imageUrl = image || null;
+    if (req.file) {
+      imageUrl = `/uploads/${req.file.filename}`;
+    }
+
     const newPost = new Post({
-      itle,
+      title,
       content: content || null,
-      subreddit,
+      subreddit: communityName,
       author: req.user.username,  
       userId: req.user.id,       
-      image: image || null,
-      link: link || null,
+      image: imageUrl,
       votes: 0,
       comments: 0,
     });
-
-
 
     console.log('DEBUG POST /api/posts - newPost before save:', newPost);
     const savedPost = await newPost.save();
     console.log('DEBUG POST /api/posts - savedPost after save:', savedPost);
     res.status(201).json(savedPost);
   } catch (err) {
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
     console.error('DEBUG POST /api/posts - Error:', err);
     res.status(500).json({ error: err.message });
   }
@@ -188,9 +325,24 @@ app.put("/api/posts/:id", async (req, res) => {
       });
     }
 
+    // Get community name if subreddit is a community ID
+    let communityName = subreddit;
+    if (subreddit) {
+      try {
+        if (subreddit.match(/^[0-9a-fA-F]{24}$/)) {
+          const community = await Community.findById(subreddit);
+          if (community) {
+            communityName = community.name;
+          }
+        }
+      } catch (err) {
+        console.log('Could not fetch community:', err.message);
+      }
+    }
+
     const updatedPost = await Post.findByIdAndUpdate(
       req.params.id,
-      { title, content, subreddit,communityId },
+      { title, content, subreddit: communityName,communityId },
       { new: true }
     );
     
@@ -201,9 +353,9 @@ app.put("/api/posts/:id", async (req, res) => {
 });
 
 // DELETE post (only post owner can delete)
-app.delete("/api/posts/:id", async (req, res) => {
+app.delete("/api/posts/:id", verifyToken, async (req, res) => {
   try {
-    const { userId } = req.body;
+    const userId = req.user.id; // verifyToken'ten gelen user ID'si
     
     // Gönderiyi bul
     const post = await Post.findById(req.params.id);
@@ -212,7 +364,7 @@ app.delete("/api/posts/:id", async (req, res) => {
     }
 
     // Sadece postu yazan kullanıcı silebilir
-    if (post.userId && userId && post.userId.toString() !== userId) {
+    if (post.userId && post.userId.toString() !== userId) {
       return res.status(403).json({ 
         message: "Sadece postu yazan kullanıcı bunu silebilir" 
       });
@@ -220,85 +372,6 @@ app.delete("/api/posts/:id", async (req, res) => {
 
     await Post.findByIdAndDelete(req.params.id);
     res.json({ message: "Post başarıyla silindi" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ===== COMMUNITIES API =====
-// GET all communities
-app.get("/api/communities", async (req, res) => {
-  try {
-    const communities = await Community.find();
-    res.json(communities);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET single community
-app.get("/api/communities/:id", async (req, res) => {
-  try {
-    const community = await Community.findById(req.params.id);
-    if (!community) {
-      return res.status(404).json({ message: "Topluluk bulunamadı" });
-    }
-    res.json(community);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// CREATE community
-app.post("/api/communities", async (req, res) => {
-  try {
-    const { name, description } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ message: "Topluluk adı gereklidir" });
-    }
-
-    const newCommunity = new Community({
-      name,
-      description: description || "",
-      members: [],
-    });
-
-    const savedCommunity = await newCommunity.save();
-    res.status(201).json(savedCommunity);
-  } catch (err) {
-    console.error("Community creation error:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
-// UPDATE community
-app.put("/api/communities/:id", async (req, res) => {
-  try {
-    const { name, description } = req.body;
-    const community = await Community.findByIdAndUpdate(
-      req.params.id,
-      { name, description },
-      { new: true }
-    );
-    if (!community) {
-      return res.status(404).json({ message: "Topluluk bulunamadı" });
-    }
-    res.json(community);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// DELETE community
-app.delete("/api/communities/:id", async (req, res) => {
-  try {
-    const community = await Community.findByIdAndDelete(req.params.id);
-    if (!community) {
-      return res.status(404).json({ message: "Topluluk bulunamadı" });
-    }
-    res.json(community);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -370,7 +443,7 @@ app.put("/api/users/:id", async (req, res) => {
 });
 
 // DELETE user
-app.delete("/api/users/:id", async (req, res) => {
+app.delete("/api/users/:id", verifyToken, verifyAdmin, async (req, res) => {
   try {
     const user = await User.findByIdAndDelete(req.params.id);
     if (!user) {
@@ -411,27 +484,40 @@ app.get("/api/comments/:id", async (req, res) => {
 });
 
 // CREATE comment
-app.post("/api/comments", async (req, res) => {
+app.post("/api/comments", upload.single('image'), async (req, res) => {
   try {
-    const { title, context, userId, postId } = req.body;
+    const { title, content, userId, postId } = req.body;
 
     // Validation
-    if (!title || !context || !userId || !postId) {
-      return res.status(400).json({ message: "Tüm alanlar gereklidir: title, context, userId, postId" });
+    if (!title || !content || !userId || !postId) {
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(400).json({ message: "Tüm alanlar gereklidir: title, content, userId, postId" });
     }
 
     // Post'un var olduğunu kontrol et
     const post = await Post.findById(postId);
     if (!post) {
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
       return res.status(404).json({ message: "Post bulunamadı" });
+    }
+
+    // Get image URL
+    let imageUrl = null;
+    if (req.file) {
+      imageUrl = `/uploads/${req.file.filename}`;
     }
 
     // Yeni yorum oluştur
     const newComment = new Comment({
       title,
-      context,
+      content,
       userId,
       postId,
+      image: imageUrl,
     });
 
     const savedComment = await newComment.save();
@@ -446,6 +532,9 @@ app.post("/api/comments", async (req, res) => {
     
     res.status(201).json(populatedComment);
   } catch (err) {
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
     console.error('Yorum oluşturulurken hata:', err);
     res.status(500).json({ error: err.message });
   }
@@ -454,7 +543,7 @@ app.post("/api/comments", async (req, res) => {
 // UPDATE comment (only comment owner can update)
 app.put("/api/comments/:id", async (req, res) => {
   try {
-    const { title, context, userId } = req.body;
+    const { title, content, userId } = req.body;
     
     // Yorumu bul
     const comment = await Comment.findById(req.params.id);
@@ -471,7 +560,7 @@ app.put("/api/comments/:id", async (req, res) => {
 
     const updatedComment = await Comment.findByIdAndUpdate(
       req.params.id,
-      { title, context },
+      { title, content },
       { new: true }
     ).populate('userId', 'username');
     
@@ -480,6 +569,7 @@ app.put("/api/comments/:id", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // DELETE comment (only comment owner can delete)
 app.delete("/api/comments/:id", async (req, res) => {
@@ -526,3 +616,5 @@ app.listen(PORT, () => {
   console.log(`✓ API: http://localhost:${PORT}/api`);
   console.log(`✓ MongoDB URI: ${MONGODB_URI}`);
 });
+
+

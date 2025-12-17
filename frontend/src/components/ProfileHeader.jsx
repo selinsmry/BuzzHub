@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as userApi from '../api/userApi';
 
-function ProfileHeader({ user, isOwnProfile = false, onEditClick, currentUserId }) {
+function ProfileHeader({ user, isOwnProfile = false, onEditClick, currentUserId, onFollowChange }) {
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -28,7 +28,13 @@ function ProfileHeader({ user, isOwnProfile = false, onEditClick, currentUserId 
       } else {
         await userApi.followUser(user.id);
       }
-      setIsFollowing(!isFollowing);
+      const newFollowStatus = !isFollowing;
+      setIsFollowing(newFollowStatus);
+      
+      // Parent component'e bildir
+      if (onFollowChange) {
+        onFollowChange(newFollowStatus);
+      }
     } catch (error) {
       console.error('Takip işlemi başarısız oldu:', error);
       alert(error.response?.data?.error || 'İşlem başarısız oldu');

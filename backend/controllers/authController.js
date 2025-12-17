@@ -67,7 +67,7 @@ exports.login = async (req, res) => {
         }
 
         const match = await bcrypt.compare(password, user.password);
-        if(!match) return res.status(401).json({ error: "Incorrect password" });
+        if(!match) return res.status(401).json({ error: "Yanlış şifre" });
 
         const accessToken = generateAccessToken(user);
         const refreshToken = generateRefreshToken(user);

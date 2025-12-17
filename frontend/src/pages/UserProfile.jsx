@@ -97,6 +97,17 @@ function UserProfile() {
     }
   };
 
+  const handleFollowChange = async (isNowFollowing) => {
+    // Takip durumu değiştiğinde takipçi sayısını güncelle
+    setUser(prevUser => ({
+      ...prevUser,
+      stats: {
+        ...prevUser.stats,
+        followers: isNowFollowing ? prevUser.stats.followers + 1 : Math.max(0, prevUser.stats.followers - 1)
+      }
+    }));
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
@@ -129,6 +140,7 @@ function UserProfile() {
               user={user} 
               isOwnProfile={false}
               currentUserId={currentUserId}
+              onFollowChange={handleFollowChange}
             />
             <ProfileStats user={user} />
           </>

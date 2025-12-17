@@ -8,8 +8,6 @@ import AdminUsers from '../components/AdminUsers';
 import AdminCommunities from '../components/AdminCommunities';
 import AdminPosts from '../components/AdminPosts';
 import AdminModeration from '../components/AdminModeration';
-import AdminReports from '../components/AdminReports';
-import AdminSettings from '../components/AdminSettings';
 
 function Admin() {
   const navigate = useNavigate();
@@ -68,10 +66,6 @@ function Admin() {
         return <AdminPosts />;
       case 'moderation':
         return <AdminModeration />;
-      case 'reports':
-        return <AdminReports />;
-      case 'settings':
-        return <AdminSettings />;
       default:
         return <AdminDashboard />;
     }

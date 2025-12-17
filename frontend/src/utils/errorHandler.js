@@ -2,7 +2,8 @@
 
 export const handleApiError = (error) => {
   if (error.response?.status === 401) {
-    return "Oturum açmanız gerekiyor";
+    // 401 de backend'den gelen hata mesajını kontrol et (yanlış şifre gibi)
+    return error.response.data?.error || "Oturum açmanız gerekiyor";
   }
   if (error.response?.status === 403) {
     return "Bu işlem için yetkiniz yok";

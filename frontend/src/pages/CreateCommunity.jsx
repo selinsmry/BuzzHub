@@ -66,7 +66,7 @@ function CreateCommunity() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
+    <div className="min-h-screen">
       <Navbar />
 
       <div className="max-w-2xl mx-auto px-4 pt-20">

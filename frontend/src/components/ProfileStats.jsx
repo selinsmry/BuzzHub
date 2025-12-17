@@ -67,7 +67,7 @@ function ProfileStats({ user }) {
 
       {/* Tab Content */}
       {activeTab === 'posts' && (
-        <div className="space-y-4">
+        <div className="space-y-4 pb-20">
           {user.posts.map((post) => (
             <PostCard key={post.id} post={post} />
           ))}
@@ -75,7 +75,7 @@ function ProfileStats({ user }) {
       )}
 
       {activeTab === 'comments' && (
-        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 text-center">
+        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 text-center pb-20">
           <svg className="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -84,7 +84,7 @@ function ProfileStats({ user }) {
       )}
 
       {activeTab === 'saved' && (
-        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 text-center">
+        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 text-center pb-20">
           <svg className="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
           </svg>

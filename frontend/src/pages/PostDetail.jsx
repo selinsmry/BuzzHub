@@ -146,12 +146,23 @@ function PostDetail() {
 
     try {
       setSubmittingComment(true);
-      const response = await axios.post(`${API_URL}/comments`, {
+      console.log('currentUser object:', currentUser);
+      console.log('currentUser._id:', currentUser?._id);
+      console.log('currentUser.id:', currentUser?.id);
+      console.log('localStorage currentUser:', localStorage.getItem('currentUser'));
+      
+      const userId = currentUser._id || currentUser.id;
+      console.log('Kullanılacak userId:', userId);
+      
+      const payload = {
         title: commentTitle,
-        context: commentContent,
-        userId: currentUser._id,
+        content: commentContent,
+        userId: userId,
         postId: post._id || post.id,
-      });
+      };
+      
+      console.log('Gönderilen payload:', payload);
+      const response = await axios.post(`${API_URL}/comments`, payload);
 
       // Yeni yorum listesine ekle
       setComments([response.data, ...comments]);
@@ -164,14 +175,17 @@ function PostDetail() {
       setPost({ ...post, comments: (post.comments || 0) + 1 });
     } catch (err) {
       console.error('Yorum eklenirken hata:', err);
-      alert(err.response?.data?.message || 'Yorum eklenirken hata oluştu');
+      console.error('Response data:', err.response?.data);
+      console.error('Status:', err.response?.status);
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || 'Yorum eklenirken hata oluştu';
+      alert(errorMsg);
     } finally {
       setSubmittingComment(false);
     }
   };
 
   const handleDeleteComment = async (commentId, commentUserId) => {
-    if (!currentUser || String(currentUser._id) !== String(commentUserId)) {
+    if (!currentUser || String(currentUser._id || currentUser.id) !== String(commentUserId)) {
       alert('Sadece kendi yorumlarınızı silebilirsiniz');
       return;
     }
@@ -179,7 +193,7 @@ function PostDetail() {
     if (window.confirm('Bu yorumu silmek istediğinizden emin misiniz?')) {
       try {
         await axios.delete(`${API_URL}/comments/${commentId}`, {
-          data: { userId: currentUser._id },
+          data: { userId: currentUser._id || currentUser.id },
         });
 
         // Yorum listesinden kaldır
@@ -229,8 +243,8 @@ function PostDetail() {
       setSubmittingEditComment(true);
       const response = await axios.put(`${API_URL}/comments/${commentId}`, {
         title: editCommentTitle,
-        context: editCommentContent,
-        userId: currentUser._id,
+        content: editCommentContent,
+        userId: currentUser._id || currentUser.id,
       });
 
       // Yorum listesini güncelle
@@ -252,7 +266,7 @@ function PostDetail() {
   const startEditComment = (comment) => {
     setEditingCommentId(comment._id);
     setEditCommentTitle(comment.title);
-    setEditCommentContent(comment.context);
+    setEditCommentContent(comment.content);
   };
 
   const handleVote = async (type) => {
@@ -452,7 +466,7 @@ function PostDetail() {
                     <span className="flex-shrink-0">•</span>
                     <span className="flex-shrink-0">Gönderen</span>
                     <span className="ml-1 text-gray-400 hover:text-gray-300 cursor-pointer transition truncate">
-                      u/{post.author}
+                      u/{post.author || post.userId?.username || 'Bilinmiyor'}
                     </span>
                   </div>
                   {/* Title */}
@@ -597,8 +611,8 @@ function PostDetail() {
                 {post.author?.charAt(0).toUpperCase()}
               </div>
               <div className="flex-1">
-                <h4 className="text-lg font-semibold text-gray-100">{post.author}</h4>
-                <p className="text-sm text-gray-400">u/{post.author}</p>
+                <h4 className="text-lg font-semibold text-gray-100">{post.author || post.userId?.username || 'Bilinmiyor'}</h4>
+                <p className="text-sm text-gray-400">u/{post.author || post.userId?.username || 'Bilinmiyor'}</p>
                 {authorData.createdAt && (
                   <p className="text-xs text-gray-500 mt-1">
                     Katılma: {new Date(authorData.createdAt).toLocaleDateString('tr-TR')}
@@ -688,7 +702,7 @@ function PostDetail() {
                       </p>
                     </div>
                     <div className="flex items-center space-x-2 flex-shrink-0">
-                      {currentUser && String(currentUser._id) === String(comment.userId?._id) && (
+                      {currentUser && comment.userId && String(currentUser._id || currentUser.id) === String(comment.userId._id || comment.userId) && (
                         <>
                           <button
                             onClick={() => startEditComment(comment)}
@@ -705,7 +719,7 @@ function PostDetail() {
                             </svg>
                           </button>
                           <button
-                            onClick={() => handleDeleteComment(comment._id, comment.userId?._id)}
+                            onClick={() => handleDeleteComment(comment._id, comment.userId._id || comment.userId)}
                             className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-700/50 rounded-lg transition"
                             title="Sil"
                           >
@@ -760,7 +774,7 @@ function PostDetail() {
                     </div>
                   ) : (
                     <>
-                      <p className="text-gray-300 whitespace-pre-wrap mb-3">{comment.content || comment.context}</p>
+                      <p className="text-gray-300 whitespace-pre-wrap mb-3">{comment.content}</p>
                       {comment.image && (
                         <img 
                           src={getImageUrl(comment.image)}

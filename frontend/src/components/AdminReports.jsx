@@ -1,13 +1,86 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axiosInstance from '../api/axiosInstance';
 
 function AdminReports() {
-  const [reports] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('date');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  const fetchReports = async () => {
+    try {
+      setLoading(true);
+      // Mock reports - Backend'te reports API olmadığından test verileri kullanıyoruz
+      const mockReports = [
+        {
+          id: 1,
+          type: 'post',
+          priority: 'high',
+          status: 'under_review',
+          reportedContent: 'Uygunsuz dil içeriyor',
+          reason: 'Spam and harassment',
+          reporter: 'user123',
+          date: new Date().toLocaleDateString('tr-TR'),
+          reportedBy: 'John Doe'
+        },
+        {
+          id: 2,
+          type: 'user',
+          priority: 'medium',
+          status: 'investigating',
+          reportedContent: 'Şüpheli kullanıcı aktivitesi',
+          reason: 'Suspicious activity',
+          reporter: 'user456',
+          date: new Date(Date.now() - 86400000).toLocaleDateString('tr-TR'),
+          reportedBy: 'Jane Smith'
+        },
+        {
+          id: 3,
+          type: 'post',
+          priority: 'low',
+          status: 'resolved',
+          reportedContent: 'Hatalı kategori',
+          reason: 'Wrong category',
+          reporter: 'user789',
+          date: new Date(Date.now() - 172800000).toLocaleDateString('tr-TR'),
+          reportedBy: 'Bob Johnson'
+        }
+      ];
+      setReports(mockReports);
+    } catch (err) {
+      console.error('Error fetching reports:', err);
+      setReports([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateReportStatus = async (reportId, newStatus) => {
+    try {
+      setReports(reports.map(r => 
+        r.id === reportId ? { ...r, status: newStatus } : r
+      ));
+      alert(`✅ Rapor durumu ${newStatus} olarak güncellendi`);
+    } catch (err) {
+      console.error('Error updating report:', err);
+      alert('❌ Hata oluştu');
+    }
+  };
+
+  const handleResolveReport = async (reportId) => {
+    await handleUpdateReportStatus(reportId, 'resolved');
+  };
 
   const filteredReports = reports.filter(report => {
-    if (filterStatus === 'all') return true;
-    return report.status === filterStatus;
+    const matchesStatus = filterStatus === 'all' || report.status === filterStatus;
+    const matchesSearch = report.reportedContent.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         report.reason.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesStatus && matchesSearch;
   });
 
   const sortedReports = [...filteredReports].sort((a, b) => {
@@ -62,7 +135,9 @@ function AdminReports() {
             <label className="block text-sm font-medium text-gray-300 mb-2">Search Reports</label>
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Arama yapın..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-orange-500/50 transition-colors"
             />
           </div>
@@ -113,6 +188,13 @@ function AdminReports() {
               <button className="px-4 py-2 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors text-sm font-medium">
                 Add Note
               </button>
+              {report.status !== 'resolved' && (
+                <button
+                  onClick={() => handleResolveReport(report.id)}
+                  className="px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-colors text-sm font-medium">
+                  Resolve
+                </button>
+              )}
             </div>
           </div>
         )) : (

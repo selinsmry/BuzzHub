@@ -4,17 +4,20 @@ import axios from 'axios';
 import Navbar from './components/Navbar';
 import PostCard from './components/PostCard';
 import Sidebar from './components/Sidebar';
+import ToastNotification from './components/ToastNotification';
 import ProtectedRoute from './components/ProtectedRoute';
 import Admin from './pages/Admin';
 import CreatePost from './pages/CreatePost';
 import CreateCommunity from './pages/CreateCommunity';
 import UpdatePost from './pages/UpdatePost';
 import Profile from './pages/Profile';
+import UserProfile from './pages/UserProfile';
 import Communities from './pages/Communities';
 import CommunityDetail from './pages/CommunityDetail';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import PostDetail from './pages/PostDetail';
+import FollowersFollowing from './pages/FollowersFollowing';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -33,7 +36,16 @@ function AppHome() {
       setLoading(true);
       setError(null);
       const response = await axios.get(`${API_URL}/posts`);
-      setPosts(response.data.posts || response.data || []);
+      const postsData = response.data.posts || response.data || [];
+      
+      // Process posts to add computed fields
+      const processedPosts = postsData.map(post => ({
+        ...post,
+        id: post._id, // Ensure both id and _id are available
+        timeAgo: new Date(post.createdAt).toLocaleDateString('tr-TR'),
+      }));
+      
+      setPosts(processedPosts);
     } catch (err) {
       console.error('Posts yüklenirken hata:', err);
       setError('Gönderiler yüklenemedi. Backend sunucu çalışıyor mu kontrol edin.');
@@ -139,21 +151,28 @@ function AppHome() {
 function App() {
   
   return (
-    <Routes>
-      <Route path="/" element={<AppHome />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-      <Route path="/add" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
-      <Route path="/create-post" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
-      <Route path="/create-community" element={<ProtectedRoute><CreateCommunity /></ProtectedRoute>} />
-      <Route path="/edit-post/:id" element={<ProtectedRoute><UpdatePost /></ProtectedRoute>} />
-      <Route path="/update-post/:id" element={<ProtectedRoute><UpdatePost /></ProtectedRoute>} />
-      <Route path="/post/:id" element={<ProtectedRoute><PostDetail /></ProtectedRoute>} />
-      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-      <Route path="/communities" element={<ProtectedRoute><Communities /></ProtectedRoute>} />
-      <Route path="/communities/:communityId" element={<CommunityDetail />} />
-    </Routes>
+    <>
+      <ToastNotification />
+      <Routes>
+        <Route path="/" element={<AppHome />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+        <Route path="/add" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
+        <Route path="/create-post" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
+        <Route path="/create-community" element={<ProtectedRoute><CreateCommunity /></ProtectedRoute>} />
+        <Route path="/edit-post/:id" element={<ProtectedRoute><UpdatePost /></ProtectedRoute>} />
+        <Route path="/update-post/:id" element={<ProtectedRoute><UpdatePost /></ProtectedRoute>} />
+        <Route path="/post/:id" element={<ProtectedRoute><PostDetail /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/profile/:userId/followers" element={<FollowersFollowing />} />
+        <Route path="/profile/:userId/following" element={<FollowersFollowing />} />
+        <Route path="/user/:userId" element={<UserProfile />} />
+        <Route path="/user-profile/:userId" element={<UserProfile />} />
+        <Route path="/communities" element={<ProtectedRoute><Communities /></ProtectedRoute>} />
+        <Route path="/communities/:communityId" element={<CommunityDetail />} />
+      </Routes>
+    </>
   );
 }
 

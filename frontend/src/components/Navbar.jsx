@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import NotificationCenter from './NotificationCenter';
 
 function Navbar() {
   const navigate = useNavigate();
@@ -90,41 +91,8 @@ function Navbar() {
               </>
             )}
             
-            {/* Notification Button */}
-            <div className="relative">
-              <button 
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="p-2 hover:bg-gray-800 rounded-xl transition relative"
-              >
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                <span className="absolute top-1 right-1 w-2 h-2 bg-pink-500 rounded-full animate-pulse"></span>
-              </button>
-              
-              {/* Notification Dropdown */}
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-gray-800/95 backdrop-blur-sm border border-gray-700/50 rounded-2xl shadow-xl z-50">
-                  <div className="p-4 border-b border-gray-700/50">
-                    <h3 className="font-bold text-white">Bildirimler</h3>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    <div className="p-4 hover:bg-gray-700/50 transition cursor-pointer border-b border-gray-700/50">
-                      <p className="text-sm text-gray-300">Yeni gönderi: "React 19 çıktı!"</p>
-                      <p className="text-xs text-gray-500 mt-1">5 dakika önce</p>
-                    </div>
-                    <div className="p-4 hover:bg-gray-700/50 transition cursor-pointer border-b border-gray-700/50">
-                      <p className="text-sm text-gray-300">Yeni yorum: Gönderinizde 3 yorum var</p>
-                      <p className="text-xs text-gray-500 mt-1">1 saat önce</p>
-                    </div>
-                    <div className="p-4 hover:bg-gray-700/50 transition cursor-pointer">
-                      <p className="text-sm text-gray-300">Yeni takipçi: 5 yeni takipçiniz var</p>
-                      <p className="text-xs text-gray-500 mt-1">3 saat önce</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Notification Center */}
+            {currentUser && <NotificationCenter />}
 
             {/* User Menu */}
             {currentUser && (

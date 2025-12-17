@@ -60,7 +60,14 @@ function Login() {
       }
     } catch (err) {
       const errorMessage = handleApiError(err);
-      setError(errorMessage);
+      
+      // Ban özel hatası
+      if (err.response?.status === 403 && err.response?.data?.suspended) {
+        setError(`⚠️ Hesabınız yasaklanmıştır\n${err.response?.data?.reason || ''}`);
+      } else {
+        setError(errorMessage);
+      }
+      
       console.error('Login error:', err);
     } finally {
       setIsSubmitting(false);

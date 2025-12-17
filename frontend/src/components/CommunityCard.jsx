@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 
@@ -7,6 +7,25 @@ function CommunityCard({ community, isJoined: initialJoined = false, onUpdate = 
   const [isJoined, setIsJoined] = useState(initialJoined);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [postCount, setPostCount] = useState(0);
+
+  useEffect(() => {
+    fetchPostCount();
+  }, [community._id]);
+
+  const fetchPostCount = async () => {
+    try {
+      const response = await axiosInstance.get(`/posts`, {
+        params: { communityId: community._id, limit: 1 }
+      });
+      if (response.data.pagination) {
+        setPostCount(response.data.pagination.totalItems);
+      }
+    } catch (err) {
+      console.error('Post sayısı alınamadı:', err);
+      setPostCount(0);
+    }
+  };
 
   const handleJoinToggle = async () => {
     try {
@@ -94,8 +113,8 @@ function CommunityCard({ community, isJoined: initialJoined = false, onUpdate = 
           </div>
           <div className="w-px h-8 bg-gray-700/50"></div>
           <div className="text-center flex-1">
-            <p className="text-lg font-bold text-pink-400">0</p>
-            <p className="text-xs text-gray-500">Gönderi/Gün</p>
+            <p className="text-lg font-bold text-pink-400">{postCount}</p>
+            <p className="text-xs text-gray-500">Gönderi</p>
           </div>
         </div>
 

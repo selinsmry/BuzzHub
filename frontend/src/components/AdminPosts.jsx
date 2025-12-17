@@ -6,6 +6,7 @@ function AdminPosts() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [selectedPost, setSelectedPost] = useState(null);
 
   useEffect(() => {
     fetchPosts();
@@ -39,6 +40,32 @@ function AdminPosts() {
     } catch (err) {
       console.error('[ADMIN POSTS] Error deleting post:', err);
       alert('Gönderi silinirken hata oluştu');
+    }
+  };
+
+  const handleFlagPost = async (postId) => {
+    try {
+      await axiosInstance.put(`/posts/${postId}`, {
+        status: 'flagged'
+      });
+      setPosts(posts.map(p => p._id === postId ? { ...p, status: 'flagged' } : p));
+      alert('✅ Gönderi işaretlendi');
+    } catch (err) {
+      console.error('[ADMIN POSTS] Error flagging post:', err);
+      alert('❌ İşlem sırasında hata oluştu');
+    }
+  };
+
+  const handlePublishPost = async (postId) => {
+    try {
+      await axiosInstance.put(`/posts/${postId}`, {
+        status: 'published'
+      });
+      setPosts(posts.map(p => p._id === postId ? { ...p, status: 'published' } : p));
+      alert('✅ Gönderi yayınlandı');
+    } catch (err) {
+      console.error('[ADMIN POSTS] Error publishing post:', err);
+      alert('❌ İşlem sırasında hata oluştu');
     }
   };
 
@@ -135,9 +162,25 @@ function AdminPosts() {
 
             {/* Actions */}
             <div className="flex gap-2">
-              <button className="px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-colors text-sm font-medium">
+              <button 
+                onClick={() => setSelectedPost(post)}
+                className="px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-colors text-sm font-medium">
                 View Details
               </button>
+              {post.status !== 'flagged' && (
+                <button
+                  onClick={() => handleFlagPost(post._id)}
+                  className="px-4 py-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 rounded-lg transition-colors text-sm font-medium">
+                  Flag
+                </button>
+              )}
+              {post.status !== 'published' && (
+                <button
+                  onClick={() => handlePublishPost(post._id)}
+                  className="px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-colors text-sm font-medium">
+                  Publish
+                </button>
+              )}
               <button
                 onClick={() => handleDeletePost(post._id)}
                 className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors text-sm font-medium">
@@ -151,6 +194,140 @@ function AdminPosts() {
           </div>
         )}
       </div>
+
+      {/* Details Modal */}
+      {selectedPost && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 rounded-xl p-4">
+          <div className="bg-gray-800 border border-gray-700/50 rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Close Button */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white">Post Details</h2>
+              <button
+                onClick={() => setSelectedPost(null)}
+                className="p-1 hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Title */}
+              <div>
+                <p className="text-gray-400 text-sm mb-2">Title</p>
+                <p className="text-white text-lg font-semibold">{selectedPost.title}</p>
+              </div>
+
+              {/* Meta Information */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-gray-400 text-sm mb-1">Author</p>
+                  <p className="text-white">{selectedPost.author || 'Unknown'}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm mb-1">Community</p>
+                  <p className="text-white">c/{selectedPost.subreddit || 'general'}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm mb-1">Posted On</p>
+                  <p className="text-white">{new Date(selectedPost.createdAt).toLocaleString('tr-TR')}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-sm mb-1">Status</p>
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                    selectedPost.status === 'published' ? 'bg-green-500/20 text-green-400' :
+                    selectedPost.status === 'flagged' ? 'bg-red-500/20 text-red-400' :
+                    'bg-yellow-500/20 text-yellow-400'
+                  }`}>
+                    {selectedPost.status}
+                  </span>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div>
+                <p className="text-gray-400 text-sm mb-2">Content</p>
+                <div className="bg-gray-900/50 border border-gray-700/30 rounded-lg p-4">
+                  <p className="text-gray-300 whitespace-pre-wrap">{selectedPost.content || 'No content'}</p>
+                </div>
+              </div>
+
+              {/* Image */}
+              {selectedPost.image && (
+                <div>
+                  <p className="text-gray-400 text-sm mb-2">Image</p>
+                  <img 
+                    src={selectedPost.image} 
+                    alt="Post image" 
+                    className="w-full h-auto rounded-lg border border-gray-700/30"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Engagement Stats */}
+              <div className="grid grid-cols-3 gap-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700/30">
+                <div className="text-center">
+                  <p className="text-gray-400 text-xs mb-1">Votes</p>
+                  <p className="text-2xl font-bold text-orange-400">{selectedPost.votes || 0}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-gray-400 text-xs mb-1">Comments</p>
+                  <p className="text-2xl font-bold text-blue-400">{selectedPost.comments || 0}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-gray-400 text-xs mb-1">Engagement</p>
+                  <p className="text-2xl font-bold text-purple-400">{((selectedPost.votes + selectedPost.comments) / (selectedPost.votes || 1) * 100).toFixed(0)}%</p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-4 border-t border-gray-700/50">
+                {selectedPost.status !== 'flagged' && (
+                  <button
+                    onClick={() => {
+                      handleFlagPost(selectedPost._id);
+                      setSelectedPost(null);
+                    }}
+                    className="px-4 py-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    Flag
+                  </button>
+                )}
+                {selectedPost.status !== 'published' && (
+                  <button
+                    onClick={() => {
+                      handlePublishPost(selectedPost._id);
+                      setSelectedPost(null);
+                    }}
+                    className="px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    Publish
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    handleDeletePost(selectedPost._id);
+                    setSelectedPost(null);
+                  }}
+                  className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors text-sm font-medium"
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => setSelectedPost(null)}
+                  className="ml-auto px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors text-sm font-medium"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

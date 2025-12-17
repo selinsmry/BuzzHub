@@ -6,7 +6,7 @@ const mongoose = require("mongoose");
 const fs = require("fs");
 require("dotenv").config();
 
-const { Post, Community, User, Comment } = require("./models");
+const { Post, Community, User, Comment, Notification } = require("./models");
 const authRoutes = require("./routes/authRoutes");
 const communityRoutes = require("./routes/communityRoutes");
 const verifyToken = require("./middleware/verifyToken");
@@ -216,9 +216,19 @@ app.get("/api/posts", async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-    const posts = await Post.find().skip(skip).limit(limit).sort({createdAt: -1});
+    
+    // Build filter query
+    const filter = {};
+    if (req.query.communityId) {
+      filter.communities = req.query.communityId;
+    }
+    if (req.query.userId) {
+      filter.userId = req.query.userId;
+    }
+    
+    const posts = await Post.find(filter).skip(skip).limit(limit).sort({createdAt: -1}).populate('userId', 'username profile_picture');
 
-    const total = await Post.countDocuments();
+    const total = await Post.countDocuments(filter);
     const totalPages = Math.ceil(total / limit);
 
     res.json({posts,pagination:{
@@ -249,9 +259,9 @@ app.get("/api/posts/:id", async (req, res) => {
 // CREATE new post
 app.post("/api/posts", verifyToken, upload.single('image'), async (req, res) => {
   try {
-    const { title, content, subreddit, author, image, userId } = req.body;
+    const { title, content, subreddit, author, image, userId, communityId } = req.body;
     
-    console.log('DEBUG POST /api/posts - Received:', { title, content, subreddit, author, image, userId });
+    console.log('DEBUG POST /api/posts - Received:', { title, content, subreddit, author, image, userId, communityId });
     console.log('DEBUG POST /api/posts - File:', req.file);
 
     // Validation
@@ -262,14 +272,16 @@ app.post("/api/posts", verifyToken, upload.single('image'), async (req, res) => 
       return res.status(400).json({ message: "Başlık ve topluluk gereklidir" });
     }
 
-    // Get community name
+    // Get community name and ID
     let communityName = subreddit;
+    let communityObjectId = communityId;
     try {
       // Check if subreddit is a valid MongoDB ObjectId
       if (subreddit.match(/^[0-9a-fA-F]{24}$/)) {
         const community = await Community.findById(subreddit);
         if (community) {
           communityName = community.name;
+          communityObjectId = subreddit;
         }
       }
     } catch (err) {
@@ -287,6 +299,7 @@ app.post("/api/posts", verifyToken, upload.single('image'), async (req, res) => 
       title,
       content: content || null,
       subreddit: communityName,
+      communities: communityObjectId,
       author: req.user.username,  
       userId: req.user.id,       
       image: imageUrl,
@@ -308,9 +321,10 @@ app.post("/api/posts", verifyToken, upload.single('image'), async (req, res) => 
 });
 
 // UPDATE post (only post owner can update)
-app.put("/api/posts/:id", async (req, res) => {
+app.put("/api/posts/:id", verifyToken, async (req, res) => {
   try {
-    const { title, content, subreddit, userId,communityId } = req.body;
+    const { title, content, subreddit, communityId, link, image } = req.body;
+    const userId = req.user.id; // verifyToken'ten gelen user ID'si
     
     // Gönderiyi bul
     const post = await Post.findById(req.params.id);
@@ -319,7 +333,7 @@ app.put("/api/posts/:id", async (req, res) => {
     }
 
     // Sadece postu yazan kullanıcı güncelleyebilir
-    if (post.userId && userId && post.userId.toString() !== userId) {
+    if (post.userId.toString() !== userId) {
       return res.status(403).json({ 
         message: "Sadece postu yazan kullanıcı bunu güncelleyebilir" 
       });
@@ -327,12 +341,14 @@ app.put("/api/posts/:id", async (req, res) => {
 
     // Get community name if subreddit is a community ID
     let communityName = subreddit;
+    let communityObjectId = communityId;
     if (subreddit) {
       try {
         if (subreddit.match(/^[0-9a-fA-F]{24}$/)) {
           const community = await Community.findById(subreddit);
           if (community) {
             communityName = community.name;
+            communityObjectId = subreddit;
           }
         }
       } catch (err) {
@@ -340,9 +356,27 @@ app.put("/api/posts/:id", async (req, res) => {
       }
     }
 
+    // Build update object
+    const updateData = {
+      title,
+      subreddit: communityName,
+      communities: communityObjectId
+    };
+
+    // Add content, link, or image if provided
+    if (content) {
+      updateData.content = content;
+    }
+    if (link) {
+      updateData.link = link;
+    }
+    if (image) {
+      updateData.image = image;
+    }
+
     const updatedPost = await Post.findByIdAndUpdate(
       req.params.id,
-      { title, content, subreddit: communityName,communityId },
+      updateData,
       { new: true }
     );
     
@@ -401,6 +435,19 @@ app.get("/api/users/:id", async (req, res) => {
   }
 });
 
+// GET user by username
+app.get("/api/users/username/:username", async (req, res) => {
+  try {
+    const user = await User.findOne({ username: req.params.username }).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "Kullanıcı bulunamadı" });
+    }
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // CREATE user
 app.post("/api/users", async (req, res) => {
   try {
@@ -427,10 +474,22 @@ app.post("/api/users", async (req, res) => {
 // UPDATE user
 app.put("/api/users/:id", async (req, res) => {
   try {
-    const { username, email, role } = req.body;
+    const { username, email, role, is_suspended, suspension_reason } = req.body;
+    const updateData = { username, email, role };
+    
+    // Eğer is_suspended değiştiriliyorsa güncelle
+    if (is_suspended !== undefined) {
+      updateData.is_suspended = is_suspended;
+    }
+    
+    // Suspension sebebi varsa güncelle
+    if (suspension_reason !== undefined) {
+      updateData.suspension_reason = suspension_reason;
+    }
+    
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { username, email, role },
+      updateData,
       { new: true }
     ).select("-password");
     if (!user) {
@@ -468,6 +527,26 @@ app.get("/api/posts/:postId/comments", async (req, res) => {
   }
 });
 
+// GET all comments for a user
+app.get("/api/comments", async (req, res) => {
+  try {
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ error: "userId parametresi gereklidir" });
+    }
+
+    const comments = await Comment.find({ userId: userId })
+      .populate('userId', 'username')
+      .populate('postId', 'title')
+      .sort({ createdAt: -1 });
+    
+    res.json(comments);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET single comment
 app.get("/api/comments/:id", async (req, res) => {
   try {
@@ -487,13 +566,24 @@ app.get("/api/comments/:id", async (req, res) => {
 app.post("/api/comments", upload.single('image'), async (req, res) => {
   try {
     const { title, content, userId, postId } = req.body;
+    
+    console.log('Yorum oluşturma isteği:', {
+      title: !!title,
+      content: !!content,
+      userId: !!userId,
+      postId: !!postId,
+      received: req.body
+    });
 
     // Validation
     if (!title || !content || !userId || !postId) {
       if (req.file) {
         fs.unlinkSync(req.file.path);
       }
-      return res.status(400).json({ message: "Tüm alanlar gereklidir: title, content, userId, postId" });
+      return res.status(400).json({ 
+        message: "Tüm alanlar gereklidir: title, content, userId, postId",
+        received: req.body
+      });
     }
 
     // Post'un var olduğunu kontrol et
@@ -616,5 +706,3 @@ app.listen(PORT, () => {
   console.log(`✓ API: http://localhost:${PORT}/api`);
   console.log(`✓ MongoDB URI: ${MONGODB_URI}`);
 });
-
-

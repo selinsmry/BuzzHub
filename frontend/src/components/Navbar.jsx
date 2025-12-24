@@ -84,6 +84,18 @@ function Navbar() {
               </>
             ) : (
               <>
+                <Link to="/feed" className="hidden md:flex items-center space-x-2 px-5 py-2 hover:bg-gray-800 rounded-xl transition text-sm font-semibold text-gray-300">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span>Feed</span>
+                </Link>
+                <Link to="/recommendations" className="hidden md:flex items-center space-x-2 px-5 py-2 hover:bg-gray-800 rounded-xl transition text-sm font-semibold text-gray-300">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span>Önerilen</span>
+                </Link>
                 <Link to="/communities" className="hidden md:flex items-center space-x-2 px-5 py-2 hover:bg-gray-800 rounded-xl transition text-sm font-semibold text-gray-300">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.856-1.487M15 10a3 3 0 11-6 0 3 3 0 016 0zM4 20h16c0-1.268-.63-2.39-1.593-3.068a8.003 8.003 0 016.41-3.07m0 0a8 8 0 11-16 0m16 0v2m0 0H4" />

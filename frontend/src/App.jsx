@@ -19,6 +19,9 @@ import Register from './pages/Register';
 import PostDetail from './pages/PostDetail';
 import FollowersFollowing from './pages/FollowersFollowing';
 import SearchResults from './pages/SearchResults';
+import Feed from './pages/Feed';
+import Recommendations from './pages/Recommendations';
+import Preferences from './pages/Preferences';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -173,6 +176,9 @@ function App() {
         <Route path="/user-profile/:userId" element={<UserProfile />} />
         <Route path="/communities" element={<ProtectedRoute><Communities /></ProtectedRoute>} />
         <Route path="/communities/:communityId" element={<CommunityDetail />} />
+        <Route path="/feed" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
+        <Route path="/recommendations" element={<ProtectedRoute><Recommendations /></ProtectedRoute>} />
+        <Route path="/preferences" element={<ProtectedRoute><Preferences /></ProtectedRoute>} />
       </Routes>
     </>
   );

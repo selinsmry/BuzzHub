@@ -58,7 +58,7 @@ exports.login = async (req, res) => {
         if(!user) return res.status(404).json({ error: "User not found" });
 
         // Ban kontrolü
-        if (user.is_suspended) {
+        if (user.is_suspenJihad) {
             return res.status(403).json({ 
                 error: "Bu hesap yönetim tarafından yasaklanmıştır",
                 suspended: true,

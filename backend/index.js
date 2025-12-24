@@ -9,6 +9,7 @@ require("dotenv").config();
 const { Post, Community, User, Comment, Notification } = require("./models");
 const authRoutes = require("./routes/authRoutes");
 const communityRoutes = require("./routes/communityRoutes");
+const recommendationRoutes = require("./routes/recommendationRoutes");
 const verifyToken = require("./middleware/verifyToken");
 const verifyAdmin = require("./middleware/verifyAdmin");
 const upload = require("./middleware/uploadMiddleware");
@@ -47,44 +48,8 @@ app.use("/api/auth", authRoutes);
 // Community Routes
 app.use("/api/communities", communityRoutes);
 
-// ===== DEBUG API =====
-// Tüm postları listele (debug için)
-app.get("/api/debug/posts", async (req, res) => {
-  try {
-    const posts = await Post.find().select("_id title author userId createdAt");
-    res.json(posts);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Database'i sıfırla (TESTİNG İÇİN)
-app.post("/api/debug/reset", async (req, res) => {
-  try {
-    await Post.deleteMany({});
-    await User.deleteMany({});
-    await Community.deleteMany({});
-    res.json({ message: "Database temizlendi" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Migration endpoint to initialize userVotes field for existing posts
-app.post("/api/debug/migrate-votes", async (req, res) => {
-  try {
-    const result = await Post.updateMany(
-      { userVotes: { $exists: false } },
-      { $set: { userVotes: [] } }
-    );
-    res.json({ 
-      message: "Oy migration tamamlandı",
-      modifiedCount: result.modifiedCount
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// Recommendation Routes
+app.use("/api/recommendations", recommendationRoutes);
 
 
 // ===== VOTES API =====
@@ -135,7 +100,7 @@ app.put("/api/votes/:id", verifyToken, async (req, res) => {
         const removedVote = post.userVotes[existingVoteIndex];
         voteChange = removedVote.voteType === 'up' ? -1 : 1;
         post.userVotes.splice(existingVoteIndex, 1);
-      }
+      } 
     } else if (existingVoteIndex !== -1) {
       // User already voted - change vote
       const oldVote = post.userVotes[existingVoteIndex];
@@ -261,8 +226,7 @@ app.post("/api/posts", verifyToken, upload.single('image'), async (req, res) => 
   try {
     const { title, content, subreddit, author, image, userId, communityId, commentsEnabled } = req.body;
     
-    console.log('DEBUG POST /api/posts - Received:', { title, content, subreddit, author, image, userId, communityId, commentsEnabled });
-    console.log('DEBUG POST /api/posts - File:', req.file);
+  
 
     // Validation
     if (!title || !subreddit) {
@@ -308,15 +272,12 @@ app.post("/api/posts", verifyToken, upload.single('image'), async (req, res) => 
       commentsEnabled: commentsEnabled !== 'false' && commentsEnabled !== false,
     });
 
-    console.log('DEBUG POST /api/posts - newPost before save:', newPost);
     const savedPost = await newPost.save();
-    console.log('DEBUG POST /api/posts - savedPost after save:', savedPost);
     res.status(201).json(savedPost);
   } catch (err) {
     if (req.file) {
       fs.unlinkSync(req.file.path);
     }
-    console.error('DEBUG POST /api/posts - Error:', err);
     res.status(500).json({ error: err.message });
   }
 });

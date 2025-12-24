@@ -60,6 +60,15 @@ const userSchema = new mongoose.Schema(
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     createdAt: { type: Date, default: Date.now },
+    // Engagement tracking for recommendations
+    communityEngagement: [{
+      communityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Community' },
+      totalTimeSpent: { type: Number, default: 0 }, // in seconds
+      visitCount: { type: Number, default: 0 },
+      lastVisited: Date,
+      engagement_score: { type: Number, default: 0 } // calculated score
+    }],
+    preferredCategories: [String], // user interests/preferences
   },
   { timestamps: true }
 );

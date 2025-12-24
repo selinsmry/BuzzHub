@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import PostCard from '../components/PostCard';
+import EngagementTracker from '../components/EngagementTracker';
 import axiosInstance from '../api/axiosInstance';
 
 function CommunityDetail() {
@@ -190,6 +191,7 @@ function CommunityDetail() {
   return (
     <div className="min-h-screen">
       <Navbar />
+      <EngagementTracker communityId={communityId} />
       
       <div className="max-w-7xl mx-auto px-4 pt-5">
         {/* Community Header Banner */}

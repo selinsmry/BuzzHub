@@ -62,19 +62,7 @@ function ProfileStats({ user }) {
           </svg>
           Yorumlar
         </button>
-        <button
-          onClick={() => setActiveTab('saved')}
-          className={`px-4 py-2 font-semibold transition-all ${
-            activeTab === 'saved'
-              ? 'text-orange-400 border-b-2 border-orange-400'
-              : 'text-gray-400 hover:text-gray-300'
-          }`}
-        >
-          <svg className="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-          </svg>
-          Kaydedilen
-        </button>
+        
       </div>
 
       {/* Tab Content */}
@@ -119,15 +107,6 @@ function ProfileStats({ user }) {
               <p className="text-gray-400">Yorum yok</p>
             </div>
           )}
-        </div>
-      )}
-
-      {activeTab === 'saved' && (
-        <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 text-center pb-20">
-          <svg className="w-12 h-12 text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-          </svg>
-          <p className="text-gray-400">Kaydedilen gönderi yok</p>
         </div>
       )}
     </div>
